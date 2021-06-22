@@ -1,35 +1,12 @@
 from pathlib import Path
 from base64 import b64encode
 
+import pprint
+
 __all__ = ["tokenize", "write_tokenised_to_file"]
 
-TOKENS = {
-    "~": "IMPORT",
-
-    "$": "DECL",
-    "+": "ADD",
-    "=": "SET_NUM",
-    "%": "COMP",
-    ":": "SET_STR",
-    "!": "UPPER",
-    ".": "LOWER",
-    "@": "TRIM",
-
-    "\"": "TO_STR",
-    "1": "TO_NUM",
-
-    "#": "INDEX",
-    "?": "JMP",
-
-    "/": "FUNC_START",
-    "\\": "FUNC_END",
-    "|": "FUNC_EXEC",
-
-    ">": "INPUT",
-    "<": "OUTPUT",
-}
-
-COMMANDS = TOKENS.keys()
+COMMANDS = ["~", "$", "+", "=", "%", ":", "!", ".",
+            "@", "\"", "1", "#", "?", "/", "\\", "|", ">", "<"]
 
 
 class CONTEXTS:
@@ -65,7 +42,6 @@ def tokenise(file: Path) -> list[Token]:
         ))
 
     with open(file, "r") as f:
-        # enum. over each line and character to allow for reporting syntax errors with the location
         for line in f:
             for char_index, char in enumerate(line):
 
@@ -79,7 +55,7 @@ def tokenise(file: Path) -> list[Token]:
 
                 # checks if the character is a valid command. only adds it if it is followed by a bracket
                 elif(char in COMMANDS and next == "(" and CONTEXT == CONTEXTS.OUT):
-                    add_token(char, TOKENS[char])
+                    add_token(char, "COMMAND")
 
                 # check if its an opening bracket but also if the previous character was a command otherwise it will ignore it
                     # i.e `#()` is valid but `()` is not
@@ -93,7 +69,15 @@ def tokenise(file: Path) -> list[Token]:
 
                     # when we are about to leave the context, if there was an argument left over add it and clear the name
                     if(var_name != ""):
-                        add_token(var_name, "ARG")
+                        try:
+                            val = int(var_name)
+                            add_token(val, "NUMBER")
+                        except ValueError:
+                            try:
+                                val = float(var_name)
+                                add_token(val, "NUMBER")
+                            except ValueError:
+                                add_token(var_name, "ARG")
                         var_name = ""
 
                     add_token(char, "R_BRACK")
@@ -122,11 +106,17 @@ def tokenise(file: Path) -> list[Token]:
                         # concat all the characters together into cohesive name
                         var_name = var_name + char
                     else:
-                        add_token(var_name, "ARG")
-                        add_token(char, "SEP")
+                        if(var_name != ""):
+                            try:
+                                val = float(var_name)
+                                add_token(val, "NUMBER")
+                            except Exception:
+                                add_token(var_name, "ARG")
 
                         # wipe the argument name once we hit a separator
                         var_name = ""
+
+    add_token("EOF", "EOF")
     return tokens
 
 
