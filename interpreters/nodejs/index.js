@@ -1,4 +1,4 @@
-function readCode(code) {
+function tokenizeCode(code) {
     let commandsList = [
         '$', '+', '=', '%', 
         ':', '!', '.', '@',
@@ -13,14 +13,17 @@ function readCode(code) {
 
     for(let i = 0; i < code.length; i++) {
         let char = code[i];
+        let prevChar = code[i-1]
+        let nextChar = code[i+1]
         let clearTokenString = false;
+        let prevContext = context.toString();
 
-        if(commandsList.includes(char) && context == 'out') {
+        if(commandsList.includes(char) && context == 'out' && nextChar == '(') {
             tokensList.push({
                 key: 'commandName',
                 value: char
             });
-        } else if(char == '(' && context == 'out') {
+        } else if(char == '(' && context == 'out' && commandsList.includes(prevChar)) {
             tokensList.push({
                 key: 'bracketOpen'
             });
@@ -52,8 +55,51 @@ function readCode(code) {
                     break;
             }
             clearTokenString = true;
-        } else if(context == 'in') {
-            
+        } else if(context == 'in' || context == 'str') {
+            currentTokenString += char;
+        }
+
+        if(clearTokenString) {
+            if(currentTokenString.trim() == '') {
+                currentTokenString = '';
+                continue;
+            }
+
+            let lastToken = tokensList.pop()
+            if(prevContext == 'in') {
+                if(parseFloat(currentTokenString) == currentTokenString) {
+                    //number
+                    tokensList.push({
+                        key: 'number',
+                        value: parseFloat(currentTokenString)
+                    });
+                } else if(currentTokenString == 'true' || currentTokenString == 'false') {
+                    //bool
+                    tokensList.push({
+                        key: 'bool',
+                        value: currentTokenString == 'true'
+                    });
+                } else {
+                    //identifier
+                    tokensList.push({
+                        key: 'identifier',
+                        value: currentTokenString
+                    });
+                }
+            } else if(prevContext == 'str') {
+                tokensList.push({
+                    key: 'string',
+                    value: currentTokenString
+                });
+            }
+
+            currentTokenString = '';
+            tokensList.push(lastToken);
         }
     }
+    return tokensList;
 }
+
+/*let code = 'comment $ # () #';
+console.log(code);
+console.log(tokenizeCode(code));*/
