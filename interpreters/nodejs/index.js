@@ -1,4 +1,5 @@
 const prompt = require('prompt-sync')();
+const fs = require('fs');
 
 function tokenizeCode(code) {
     // a list of all command names
@@ -357,14 +358,16 @@ function evaluateProgram(tokensList) {
                     num1 = 0;
                 if(performCheck(command.arguments[2], 'number') && performCheck(command.arguments[2], 'identifier', 'var')) 
                     num2 = 0;
-                if(command.arguments[1].type == 'identifier') 
+                if(command.arguments[1].type == 'identifier') {
                     num1 = getVar(command.arguments[1]);
                     if(num1.type == 'num') num1 = num1.value
                     else num1 = 0
-                if(command.arguments[2].type == 'identifier') 
+                }
+                if(command.arguments[2].type == 'identifier') {
                     num2 = getVar(command.arguments[2]);
                     if(num2.type == 'num') num2 = num2.value
                     else num2 = 0
+                }
 
                 let targetVarClm = getVar(command.arguments[0]);
 
@@ -418,11 +421,17 @@ function evaluateProgram(tokensList) {
                 let targetVarGt = getVar(command.arguments[0]);
 
                 let indexIf;
-                if(!command.arguments[1] || command.arguments[1].type != 'number') indexIf = commands.length-1;
+                if(
+                    performCheck(command.arguments[1], 'number') && 
+                    performCheck(command.arguments[1], 'index')
+                ) indexIf = commands.length-1;
                 else indexIf = command.arguments[1].value;
                 
                 let indexElse;
-                if(!command.arguments[2] || command.arguments[2].type != 'number') indexElse = null;
+                if(
+                    performCheck(command.arguments[2], 'number') && 
+                    performCheck(command.arguments[2], 'index')
+                ) indexElse = null;
                 else indexElse = command.arguments[2].value;
                 
                 if(targetVarGt.value) {
@@ -433,7 +442,6 @@ function evaluateProgram(tokensList) {
                     if(indexElse < 0 || indexElse.toString().startsWith('+')) pointer += parseInt(indexElse)-1
                     else pointer = indexElse-1;
                 }
-
                 break;
             case '<':
                 if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
@@ -534,17 +542,18 @@ function evaluateProgram(tokensList) {
     return stack[0];
 }
 
-let code = 
-`
-$(var1, str)
-$(var2, str)
-$(var3, bool)
+let code;
 
-:(var1, "aa")
+let arguments = process.argv.slice(2);
+let file;
+for(let i = 0; i < arguments.length; i++) {
+    if(['--file', '-f'].includes(arguments[i])) {
+        file = arguments[i+1];
+    }
+}
 
-&(var1, var3)
-
-<(var1)
-`;
-console.log(code);
-/*console.log(*/evaluateProgram(tokenizeCode(code))//);
+if(file) {
+    code = fs.readFileSync(file);
+    if(code) code = code.toString();
+    evaluateProgram(tokenizeCode(code))
+}
