@@ -79,11 +79,17 @@ function tokenizeCode(code) {
             let lastToken = tokensList.pop()
             if(prevContext == 'in') {
                 if(parseFloat(currentTokenString) == currentTokenString) {
-                    //number
-                    tokensList.push({
-                        key: 'number',
-                        value: parseFloat(currentTokenString)
-                    });
+                    //number or +index
+                    if(currentTokenString.startsWith('+'))
+                        tokensList.push({
+                            key: 'index',
+                            value: currentTokenString
+                        });
+                    else
+                        tokensList.push({
+                            key: 'number',
+                            value: parseFloat(currentTokenString)
+                        });
                 } else if(currentTokenString == 'true' || currentTokenString == 'false') {
                     //bool
                     tokensList.push({
@@ -125,7 +131,7 @@ function evaluateProgram(tokensList) {
             newCommand.function = currentFuncs[0]; // null - no function
         } else if(token.key == 'bracketOpen') {
             newCommand.arguments = [];
-        } else if(['number', 'string', 'bool', 'identifier'].includes(token.key)) {
+        } else if(['number', 'string', 'bool', 'identifier', 'index'].includes(token.key)) {
             newCommand.arguments.push({
                 type: token.key,
                 value: token.value
@@ -291,10 +297,10 @@ function evaluateProgram(tokensList) {
                 let targetVar2 = getVar(command.arguments[1])
                 let targetVar3 = getVar(command.arguments[2])
 
-                if(targetVar1.type == 'num' && targetVar2.type == 'num' && targetVar3.type == 'num') {
-                    if(targetVar1.value > targetVar2.value) targetVar3.value = 1;
-                    else if(targetVar1.value < targetVar2.value) targetVar3.value = -1;
-                    else targetVar3.value = 0;
+                if(targetVar3.type == 'num') {
+                    if(targetVar1.value == targetVar2.value) targetVar3.value = 0;
+                    else if(targetVar1.value > targetVar2.value) targetVar3.value = 1;
+                    else targetVar3.value = -1;
                 }
                 break;
             case ':':
@@ -397,9 +403,14 @@ function evaluateProgram(tokensList) {
                 break;
             case '#':
                 let index1;
-                if(!command.arguments[0] || command.arguments[0].type != 'number') index1 = commands.length-1;
+                if(
+                    performCheck(command.arguments[0], 'number') && 
+                    performCheck(command.arguments[0], 'index')
+                ) index1 = commands.length-1;
                 else index1 = command.arguments[0].value;
-                pointer = index1-1;
+                
+                if(index1 < 0 || index1.toString().startsWith('+')) pointer += parseInt(index1)-1
+                else pointer = index1-1;
                 break;
             case '?':
                 if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
@@ -409,12 +420,19 @@ function evaluateProgram(tokensList) {
                 let indexIf;
                 if(!command.arguments[1] || command.arguments[1].type != 'number') indexIf = commands.length-1;
                 else indexIf = command.arguments[1].value;
+                
                 let indexElse;
                 if(!command.arguments[2] || command.arguments[2].type != 'number') indexElse = null;
                 else indexElse = command.arguments[2].value;
                 
-                if(targetVarGt.value) pointer = indexIf-1;
-                else if(indexElse != null) pointer = indexElse-1;
+                if(targetVarGt.value) {
+                    if(indexIf < 0 || indexIf.toString().startsWith('+')) pointer += parseInt(indexIf)-1
+                    else pointer = indexIf-1;
+                }
+                else if(indexElse != null) {
+                    if(indexElse < 0 || indexElse.toString().startsWith('+')) pointer += parseInt(indexElse)-1
+                    else pointer = indexElse-1;
+                }
 
                 break;
             case '<':
@@ -518,23 +536,15 @@ function evaluateProgram(tokensList) {
 
 let code = 
 `
-/(addValues, a, b)
-  $(c, num)
-  +(c, a)
-  +(c, b)
-\\(c)
+$(var1, str)
+$(var2, str)
+$(var3, bool)
 
+:(var1, "aa")
 
-$(sum, num)
-|(addValues, 5, 2, sum)
-<(sum)
-$(sum2, num)
-|(addValues, 10, 8, sum2)
-<(sum2)
-$(sum3, num)
-|(addValues, sum, sum2, sum3)
-<(sum3)
+&(var1, var3)
 
+<(var1)
 `;
 console.log(code);
 /*console.log(*/evaluateProgram(tokenizeCode(code))//);
