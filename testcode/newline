@@ -3,3 +3,5 @@ $(pr, str)
 <(pr) should print "Hello" on one line and "World" on the other
 :(pr, "Hello \\nWorld") 
 <(pr) should pront "Hello \\nWorld"
+:(pr, "Hello \\\nWorld") 
+<(pr) should print "Hello" on one line and "World" on the other

@@ -556,7 +556,7 @@ if(file) {
     code = fs.readFileSync(file);
     if(code) {
         code = code.toString();
-        code = code.replace(/\w*(?<!\\)\\n/g,"\n");
+        code = code.replace(/(?<!\\)\\(\\\\)*(?!\\)n/g,"\n");
         evaluateProgram(tokenizeCode(code));
     }
 }
