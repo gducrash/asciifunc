@@ -1,6 +1,6 @@
 {
   "name": "asciifunc-nodejs",
-  "version": "0.0.2",
+  "version": "0.9.0",
   "description": "NodeJS interpreter for ASCIIFunc",
   "main": "index.js",
   "scripts": {

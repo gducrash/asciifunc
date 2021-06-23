@@ -554,6 +554,9 @@ for(let i = 0; i < arguments.length; i++) {
 
 if(file) {
     code = fs.readFileSync(file);
-    if(code) code = code.toString();
-    evaluateProgram(tokenizeCode(code))
+    if(code) {
+        code = code.toString();
+        code = code.replace(/\w*(?<!\\)\\n/g,"\n");
+        evaluateProgram(tokenizeCode(code));
+    }
 }
