@@ -1,16 +1,20 @@
 const prompt = require('prompt-sync')();
 
 function tokenizeCode(code) {
+    // a list of all command names
     let commandsList = [
-        '$', '+', '=', '%', 
+        '~', '$', '+', '=', '%', 
         ':', '&', '!', '.', '@',
         '"', '1', '#', '?',
         '/', '\\', '|', '>', '<'
     ]
+
+    // data for tokenizing (tokensList contains the result after the process)
     let tokensList = [];
     let currentTokenString = '';
     let context = 'out'; // out = outside of command, in = inside of command, str = inside of a string
 
+    // begin tokenization
     for(let i = 0; i < code.length; i++) {
         let char = code[i];
         let prevChar = code[i-1]
@@ -18,11 +22,13 @@ function tokenizeCode(code) {
         let clearTokenString = false;
         let prevContext = context.toString();
 
+        // command name token
         if(commandsList.includes(char) && context == 'out' && nextChar == '(') {
             tokensList.push({
                 key: 'commandName',
                 value: char
             });
+        // punctuation tokens
         } else if(char == '(' && context == 'out' && commandsList.includes(prevChar)) {
             tokensList.push({
                 key: 'bracketOpen'
@@ -55,6 +61,7 @@ function tokenizeCode(code) {
                     break;
             }
             clearTokenString = true;
+        // contents of the string or an argument
         } else if(context == 'in' || context == 'str') {
             currentTokenString += char;
             if(context == 'in' && currentTokenString.trim() == '') {
@@ -62,6 +69,7 @@ function tokenizeCode(code) {
             }
         }
 
+        // move currentTokenString to the tokens list and define it's type
         if(clearTokenString) {
             if(currentTokenString.trim() == '') {
                 currentTokenString = '';
@@ -90,6 +98,7 @@ function tokenizeCode(code) {
                     });
                 }
             } else if(prevContext == 'str') {
+                // string
                 tokensList.push({
                     key: 'string',
                     value: currentTokenString
@@ -104,12 +113,16 @@ function tokenizeCode(code) {
 }
 
 function evaluateProgram(tokensList) {
-    // convert to a list of commands
+    // convert to a list of commands 
+    // (each command has a name, a list of arguments and a function in which the command is contained)
     let commands = [];
     let newCommand = {};
+    let func = '"global"'; // in quotation marks, so that there won't be functions with the same name
+    let currentFuncs = [func];
     tokensList.forEach(token => {
         if(token.key == 'commandName') {
             newCommand.name = token.value;
+            newCommand.function = currentFuncs[0]; // null - no function
         } else if(token.key == 'bracketOpen') {
             newCommand.arguments = [];
         } else if(['number', 'string', 'bool', 'identifier'].includes(token.key)) {
@@ -119,16 +132,30 @@ function evaluateProgram(tokensList) {
             });
         } else if(token.key == 'bracketClose') {
             commands.push(newCommand);
+            if(newCommand.name == '/') {
+                if(newCommand.arguments[0].type == 'identifier') currentFuncs.unshift(newCommand.arguments[0].value);
+                else currentFuncs.unshift(null);
+            } else if(newCommand.name == '\\') {
+                currentFuncs.shift();
+            }
             newCommand = {};
         }
     });
 
     // evaluate commands
-    let stack = [{
-        layer: 'global',
-        variables: [],
-        functions: []
-    }];
+
+    // initialize stack
+    let stack = [];
+    function addStackLayer(name) {
+        stack.unshift({
+            layer: name,
+            variables: [],
+            functions: []
+        });
+    }
+    addStackLayer('global');
+
+    // helpful funtions for dealing with variables and functions
     function stackContainsVar(name) {
         let r = false
         stack.forEach(layer => {
@@ -145,24 +172,72 @@ function evaluateProgram(tokensList) {
         });
         return r;
     }
+    function getVar(name) {
+        if(typeof name == 'object' && name.value) 
+            return stack[
+                getVarStackLayer(name.value)
+            ].variables[name.value];
+        else
+            return stack[
+                getVarStackLayer(name)
+            ].variables[name];
+    }
 
+    function stackContainsFunc(name) {
+        let r = false
+        stack.forEach(layer => {
+            if(layer.functions[name]) r = true;
+        });
+        return r;
+    }
+    function getFunction(name) {
+        let r = null
+        stack.forEach(layer => {
+            if(layer.functions[name] && r == null) {
+                r = layer.functions[name];
+            }
+        });
+        return r;
+    }
+
+    // function for performing argument checks
+    function performCheck(argument, targetType, special) {
+        let fail;
+        if(argument && argument.type == targetType) fail = false;
+        else fail = true;
+
+        if(!fail && special == 'var') {
+            if(!stackContainsVar(argument.value)) fail = true;
+        } else if(!fail && special == 'func') {
+            if(!stackContainsFunc(argument.value)) fail = true;
+        }
+
+        return fail;
+    }
+
+    // begin execution
+    // pointer - the location of the currently-executing command
+    // history - a "stack" of previous pointer and function states (for exiting out of the function)
+    // defaultValues - default values for different variable types 
     let pointer = -1;
+    let history = [];
+    let defaultValues = {
+        num: 0,
+        str: '',
+        bool: false
+    }
     while(pointer < commands.length-1) {
         pointer++;
         let command = commands[pointer];
+        if(command.function != func) continue;
         switch(command.name) {
             case '$':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
+                if(performCheck(command.arguments[0], 'identifier')) continue;
                 let varName = command.arguments[0].value;
                 let varType = (
                     command.arguments[1] && command.arguments[1].type == 'identifier'
                     && ['num', 'str', 'bool'].includes(command.arguments[1].value)
                 ) ? command.arguments[1].value : 'num';
-                let defaultValues = {
-                    num: 0,
-                    str: '',
-                    bool: false
-                }
                 if(!stack[0].variables[varName]) 
                     stack[0].variables[varName] = {
                         type: varType,
@@ -171,12 +246,9 @@ function evaluateProgram(tokensList) {
                 
                 break;
             case '+':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 
-                let targetVar = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVar = getVar(command.arguments[0])
                 let targetNum = (
                     command.arguments[1] && command.arguments[1].type == 'number'
                 ) ? command.arguments[1].value : 0;
@@ -192,12 +264,9 @@ function evaluateProgram(tokensList) {
                 if(targetVar.type == 'num') targetVar.value += targetNum;
                 break;
             case '=':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 
-                let targetVarEq = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVarEq = getVar(command.arguments[0])
                 let targetNumEq = (
                     command.arguments[1] && command.arguments[1].type == 'number'
                 ) ? command.arguments[1].value : 0;
@@ -212,24 +281,15 @@ function evaluateProgram(tokensList) {
                 if(targetVarEq.type == 'num') targetVarEq.value = targetNumEq;
                 break;
             case '%':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!command.arguments[1] || command.arguments[1].type != 'identifier') return;
-                if(!command.arguments[2] || command.arguments[2].type != 'identifier') return;
                 if(
-                    !stackContainsVar(command.arguments[0].value) ||
-                    !stackContainsVar(command.arguments[1].value) ||
-                    !stackContainsVar(command.arguments[2].value)
-                ) return;
+                    performCheck(command.arguments[0], 'identifier', 'var') ||
+                    performCheck(command.arguments[1], 'identifier', 'var') ||
+                    performCheck(command.arguments[2], 'identifier', 'var')
+                ) continue;
                 
-                let targetVar1 = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
-                let targetVar2 = stack[
-                    getVarStackLayer(command.arguments[1].value)
-                ].variables[command.arguments[1].value];
-                let targetVar3 = stack[
-                    getVarStackLayer(command.arguments[2].value)
-                ].variables[command.arguments[2].value];
+                let targetVar1 = getVar(command.arguments[0])
+                let targetVar2 = getVar(command.arguments[1])
+                let targetVar3 = getVar(command.arguments[2])
 
                 if(targetVar1.type == 'num' && targetVar2.type == 'num' && targetVar3.type == 'num') {
                     if(targetVar1.value > targetVar2.value) targetVar3.value = 1;
@@ -238,12 +298,9 @@ function evaluateProgram(tokensList) {
                 }
                 break;
             case ':':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 
-                let targetVarStr = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVarStr = getVar(command.arguments[0]);
                 let targetNumStr = (
                     command.arguments[1] && command.arguments[1].type == 'string'
                 ) ? command.arguments[1].value : '';
@@ -258,12 +315,9 @@ function evaluateProgram(tokensList) {
                 if(targetVarStr.type == 'str') targetVarStr.value = targetNumStr;
                 break;
             case '&':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 
-                let targetVarStr2 = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVarStr2 = getVar(command.arguments[0]);
                 let targetNumStr2 = command.arguments[1] ? command.arguments[1].value : '';
                 if(
                     command.arguments[1] && command.arguments[1].type == 'identifier' 
@@ -276,35 +330,37 @@ function evaluateProgram(tokensList) {
                 if(targetVarStr2.type == 'str') targetVarStr2.value += targetNumStr2;
                 break;
             case '!':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 
-                let targetVarInv = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVarInv = getVar(command.arguments[0]);
                 if(targetVarInv.type == 'num') targetVarInv.value *= -1;
                 else if(targetVarInv.type == 'str') targetVarInv.value = targetVarInv.value.toUpperCase();
                 else targetVarInv.value = !targetVarInv.value;
                 break;
             case '.':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 
-                let targetVarLwr = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVarLwr = getVar(command.arguments[0]);
                 if(targetVarLwr.type == 'str') targetVarLwr.value = targetVarLwr.value.toLowerCase();
                 break;
             case '@':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
                 let num1 = command.arguments[1] ? command.arguments[1].value: 0;
                 let num2 = command.arguments[2] ? command.arguments[2].value: 0;
-                if(!command.arguments[1] || command.arguments[1].type != 'number') num1 = 0;
-                if(!command.arguments[2] || command.arguments[2].type != 'number') num2 = 0;
-                
-                let targetVarClm = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                if(performCheck(command.arguments[1], 'number') && performCheck(command.arguments[1], 'identifier', 'var')) 
+                    num1 = 0;
+                if(performCheck(command.arguments[2], 'number') && performCheck(command.arguments[2], 'identifier', 'var')) 
+                    num2 = 0;
+                if(command.arguments[1].type == 'identifier') 
+                    num1 = getVar(command.arguments[1]);
+                    if(num1.type == 'num') num1 = num1.value
+                    else num1 = 0
+                if(command.arguments[2].type == 'identifier') 
+                    num2 = getVar(command.arguments[2]);
+                    if(num2.type == 'num') num2 = num2.value
+                    else num2 = 0
+
+                let targetVarClm = getVar(command.arguments[0]);
 
                 if(targetVarClm.type == 'num') {
                     let min = Math.min(num1, num2);
@@ -315,36 +371,24 @@ function evaluateProgram(tokensList) {
                 }
                 break;
             case '"':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!command.arguments[1] || command.arguments[1].type != 'identifier') return;
                 if(
-                    !stackContainsVar(command.arguments[0].value) ||
-                    !stackContainsVar(command.arguments[1].value)
-                ) return;
+                    performCheck(command.arguments[0], 'identifier', 'var') ||
+                    performCheck(command.arguments[1], 'identifier', 'var')
+                ) continue;
                 
-                let targetVarNostr = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
-                let resultVarStr = stack[
-                    getVarStackLayer(command.arguments[1].value)
-                ].variables[command.arguments[1].value];
+                let targetVarNostr = getVar(command.arguments[0]);
+                let resultVarStr = getVar(command.arguments[1]);
 
                 if(resultVarStr.type == 'str') resultVarStr.value = targetVarNostr.value.toString()
                 break;
             case '1':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!command.arguments[1] || command.arguments[1].type != 'identifier') return;
                 if(
-                    !stackContainsVar(command.arguments[0].value) ||
-                    !stackContainsVar(command.arguments[1].value)
-                ) return;
+                    performCheck(command.arguments[0], 'identifier', 'var') ||
+                    performCheck(command.arguments[1], 'identifier', 'var')
+                ) continue;
                 
-                let targetVarNonum = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
-                let resultVarNum = stack[
-                    getVarStackLayer(command.arguments[1].value)
-                ].variables[command.arguments[1].value];
+                let targetVarNonum = getVar(command.arguments[0]);
+                let resultVarNum = getVar(command.arguments[1]);
 
                 if(resultVarNum.type == 'num') {
                     resultVarNum.value = targetVarNonum.value * 1;
@@ -358,12 +402,9 @@ function evaluateProgram(tokensList) {
                 pointer = index1-1;
                 break;
             case '?':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
 
-                let targetVarGt = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                let targetVarGt = getVar(command.arguments[0]);
 
                 let indexIf;
                 if(!command.arguments[1] || command.arguments[1].type != 'number') indexIf = commands.length-1;
@@ -377,25 +418,19 @@ function evaluateProgram(tokensList) {
 
                 break;
             case '<':
-                if(!command.arguments[0] || command.arguments[0].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[0].value)) return;
-                let targetVarPrnt = stack[
-                    getVarStackLayer(command.arguments[0].value)
-                ].variables[command.arguments[0].value];
+                if(performCheck(command.arguments[0], 'identifier', 'var')) continue;
+                let targetVarPrnt = getVar(command.arguments[0]);
                 console.log(targetVarPrnt.value.toString());
                 break;
             case '>':
-                if(!command.arguments[1] || command.arguments[1].type != 'identifier') return;
-                if(!stackContainsVar(command.arguments[1].value)) return;
+                if(performCheck(command.arguments[1], 'identifier', 'var')) continue;
 
                 let promptType = (
                     command.arguments[0] && command.arguments[0].type == 'identifier'
                     && ['num', 'str', 'bool'].includes(command.arguments[0].value)
                 ) ? command.arguments[0].value : 'str';
 
-                let targetVarPrompt = stack[
-                    getVarStackLayer(command.arguments[1].value)
-                ].variables[command.arguments[1].value];
+                let targetVarPrompt = getVar(command.arguments[1]);
                 let promptRes = prompt('Enter Input > ');
                 if(promptType == 'num') promptRes = parseFloat(promptRes);
                 else if(promptType == 'bool') promptRes = promptRes == true || promptRes.trim() == 'true';
@@ -403,13 +438,78 @@ function evaluateProgram(tokensList) {
                 if(targetVarPrompt.type == promptType) targetVarPrompt.value = promptRes;
                 break;
             case '/':
-                //todo soon
+                if(performCheck(command.arguments[0], 'identifier')) continue;
+                let funcName = command.arguments[0].value;
+                // create a function in the current stack layer, if there isnt one already
+                if(!stack[0].functions[funcName]) {
+                    stack[0].functions[funcName] = {
+                        pointer: parseInt(pointer), // parseInt break the reference
+                        arguments: command.arguments.slice(1)
+                    }
+                }
+                    
                 break;
             case '\\':
-                //todo soon
+                let returnVal = null;
+                if(!performCheck(command.arguments[0], 'identifier', 'var')) {
+                    returnVal = getVar(command.arguments[0]);
+                }
+
+                // remove the last stack layer
+                stack.shift();
+                // restore the previous state of pointers and func var
+                let lastHistoryItem = history.shift();
+                pointer = lastHistoryItem.pointer;
+                func = lastHistoryItem.func;
+                // return value and store in the var
+                if(returnVal && lastHistoryItem.retVar) {
+                    if(lastHistoryItem.retVar.type == returnVal.type) {
+                        lastHistoryItem.retVar.value = returnVal.value;
+                    }
+                }
                 break;
             case '|':
-                //todo soon
+                if(performCheck(command.arguments[0], 'identifier', 'func')) continue;
+                
+                // get function pointer and arguments
+                let targetFunctionData = getFunction(command.arguments[0].value)
+                // creater a new stack layer for the function
+                addStackLayer(command.arguments[0].value);
+                // convert arguments data
+                let argi = 0;
+                targetFunctionData.arguments.forEach(a => {
+                    argi++;
+                    let argType = 'num';
+                    if(a.value.startsWith('str_')) argType = 'str';
+                    else if(a.value.startsWith('bool_')) argType = 'bool'; 
+                    let argVal = defaultValues[argType];
+                    let curArg = command.arguments[argi]
+                    if(!performCheck(curArg, 'identifier', 'var')) {
+                        curArg = getVar(curArg);
+                    }
+                    if(curArg && curArg.type.slice(0,3) == argType.slice(0,3))
+                        argVal = curArg.value;
+
+                    stack[0].variables[a.value] = {
+                        type: argType,
+                        value: argVal
+                    }
+                });
+                let retVar = command.arguments[argi+1];
+                if(performCheck(retVar.value, 'identifier', 'var')) {
+                    retVar = getVar(retVar);
+                } else {
+                    retVar = null;
+                }
+                // add current state to the history
+                history.unshift({
+                    pointer: pointer,
+                    func: func,
+                    retVar: retVar
+                });
+                // change the state to the function's data
+                func = command.arguments[0].value;
+                pointer = targetFunctionData.pointer;
                 break;
         }
     }
@@ -417,32 +517,24 @@ function evaluateProgram(tokensList) {
 }
 
 let code = 
-`truth machine btw this is treated like a comment
+`
+/(addValues, a, b)
+  $(c, num)
+  +(c, a)
+  +(c, b)
+\\(c)
 
-declare zero and ones to be accessed later
-$(zero, num)
-$(one, num)
-=(zero, 0)
-=(one, 1)
 
-get input
-$(input, num)
->(num, input)
-@(input, 0, 1)
+$(sum, num)
+|(addValues, 5, 2, sum)
+<(sum)
+$(sum2, num)
+|(addValues, 10, 8, sum2)
+<(sum2)
+$(sum3, num)
+|(addValues, sum, sum2, sum3)
+<(sum3)
 
-compare input (will output number)
-$(inputCompare, num)
-%(input, zero, inputCompare)
-
-convert comparison to bool
-?(inputCompare, 10, 12)
-
-print 1 indefinitely
-<(one)
-#(10)
-
-print 0
-<(zero)
 `;
 console.log(code);
 /*console.log(*/evaluateProgram(tokenizeCode(code))//);
