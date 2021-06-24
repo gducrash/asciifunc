@@ -1,12 +1,9 @@
 from pathlib import Path
 from base64 import b64encode
 
-import pprint
+from constants import COMMANDS
 
 __all__ = ["tokenize", "write_tokenised_to_file"]
-
-COMMANDS = ["~", "$", "+", "=", "%", ":", "!", ".",
-            "@", "\"", "1", "#", "?", "/", "\\", "|", ">", "<"]
 
 
 class CONTEXTS:
@@ -41,16 +38,41 @@ def tokenise(file: Path) -> list[Token]:
             type, char
         ))
 
+    # is separate because it's used twice and is messy to check if it is a signed number
+    def add_arg(val: str):
+        try:
+            # check if it is a number
+            num = float(val)
+
+            # now check if it had a sign
+            if(val.find("+") > -1):
+                # the + or - at the end denotes the sign
+                add_token(num, "LT_NUM+")
+            elif(val.find("-") > -1):
+                add_token(num, "LT_NUM-")
+            else:
+                add_token(num, "LT_NUM")
+
+        except ValueError:
+            if(val == "bool"):
+                add_token(val, "KW_BOOL")
+            elif(val == "str"):
+                add_token(val, "KW_STR")
+            elif(val == "num"):
+                add_token(val, "KW_NUM")
+            else:
+                add_token(val, "ARG")
+
     with open(file, "r") as f:
         for line in f:
             for char_index, char in enumerate(line):
 
-                next = ["" if(char_index + 1 >= len(line))
-                        else line[char_index + 1]][0]
+                next = "" if(char_index + 1 >= len(line)
+                             ) else line[char_index + 1]
                 prev = line[char_index - 1]
 
-                # ignore if the character is whitespace
-                if(char.isspace()):
+                # ignore if the character is whitespace dont ignore if it is in a string
+                if(char.isspace() and CONTEXT != CONTEXTS.STR):
                     continue
 
                 # checks if the character is a valid command. only adds it if it is followed by a bracket
@@ -69,15 +91,7 @@ def tokenise(file: Path) -> list[Token]:
 
                     # when we are about to leave the context, if there was an argument left over add it and clear the name
                     if(var_name != ""):
-                        try:
-                            val = int(var_name)
-                            add_token(val, "NUMBER")
-                        except ValueError:
-                            try:
-                                val = float(var_name)
-                                add_token(val, "NUMBER")
-                            except ValueError:
-                                add_token(var_name, "ARG")
+                        add_arg(var_name)
                         var_name = ""
 
                     add_token(char, "R_BRACK")
@@ -87,7 +101,7 @@ def tokenise(file: Path) -> list[Token]:
                     if(CONTEXT == CONTEXTS.STR):
                         CONTEXT = CONTEXTS.IN
 
-                        add_token(string, "STR_VAL")
+                        add_token(string, "LT_STR")
                         add_token(char, "STR_END")
 
                         string = ""
@@ -107,11 +121,7 @@ def tokenise(file: Path) -> list[Token]:
                         var_name = var_name + char
                     else:
                         if(var_name != ""):
-                            try:
-                                val = float(var_name)
-                                add_token(val, "NUMBER")
-                            except Exception:
-                                add_token(var_name, "ARG")
+                            add_arg(var_name)
 
                         # wipe the argument name once we hit a separator
                         var_name = ""
