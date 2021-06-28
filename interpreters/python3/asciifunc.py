@@ -3,6 +3,7 @@ from pathlib import Path
 
 from tokenise import tokenise
 from interpreter import interpret
+from errors import Errors
 
 parser = argparse.ArgumentParser(description="Runs an asciifunc file.")
 
@@ -24,7 +25,7 @@ args = parser.parse_args()
 if(args.file is None or not Path(args.file).exists()):
     raise ValueError("File does not exist!")
 
-STRICT = args.strict
+Errors.set_strict(args.strict)
 
 tok = tokenise(args.file)
-interpret(tok, STRICT)
+interpret(tok)
