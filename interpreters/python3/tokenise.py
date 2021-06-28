@@ -60,6 +60,8 @@ def tokenise(file: Path) -> list[Token]:
                 add_token(val, "KW_STR")
             elif(val == "num"):
                 add_token(val, "KW_NUM")
+            elif(val in ["false", "true"]):
+                add_token(val, "LT_BOOL")
             else:
                 add_token(val, "ARG")
 
@@ -128,15 +130,3 @@ def tokenise(file: Path) -> list[Token]:
 
     add_token("EOF", "EOF")
     return tokens
-
-
-def write_tokenised_to_file(name: str, tokens: list[Token]) -> None:
-    folder = Path("./__afcache")
-    folder.mkdir(parents=True, exist_ok=True)
-
-    data = ""
-    with open(folder / Path(f"{name}_tok.aftok"), "wb") as f:
-
-        data = "|".join(tokens)
-
-        f.write(b64encode(data.encode()))
