@@ -22,6 +22,10 @@ class SignedFloat(float):
     def get_sign(self) -> str:
         return self.sign
 
+    def clamp(self, _min: int, _max: int):
+        num = max(_min, min(self.num, _max))
+        return SignedFloat(num, get_flipped_sign(num, self.sign))
+
     def __mul__(self, other):
         num = super(SignedFloat, self).__mul__(other)
         return SignedFloat(num, get_flipped_sign(num, self.sign))
@@ -56,6 +60,10 @@ class SignedInt(int):
     def get_sign(self) -> str:
         return self.sign
 
+    def clamp(self, _min: int, _max: int):
+        num = max(_min, min(self.num, _max))
+        return SignedInt(num, get_flipped_sign(num, self.sign))
+
     def __mul__(self, other):
         num = super(SignedInt, self).__mul__(other)
         return SignedInt(num, get_flipped_sign(num, self.sign))
@@ -81,7 +89,10 @@ class SignedInt(int):
 class SignedNum():
     # factory class for the different signed numbers
 
-    def __new__(self, num: Union[float, int], sign: str = ""):
+    def __new__(self, num: Union[float, int, str], sign: str = ""):
+        if(isinstance(num, str)):
+            num = float(num)
+
         if(isinstance(num, float)):
             if(num.is_integer()):
                 return SignedInt(num, sign)
