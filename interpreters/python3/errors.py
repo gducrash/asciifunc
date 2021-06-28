@@ -76,7 +76,7 @@ class InvalidArgumentTypeError(Exception):
 class ArgumentNumberError(Exception):
     # raised when there is too many / too little arguments in a method call
 
-    def __init__(self, name: str, range: list(int), given_num: int):
+    def __init__(self, name: str, range: list[int], given_num: int):
         self.message = f"`{name}` takes between {range[0]} and {range[1]} arguments. {given_num} were given."
 
         if(Errors.STRICT):
