@@ -615,29 +615,7 @@ def interpret(tokens: list) -> None:
     return Interpreter(tokens).exec()
 
 
-arguments = [
-    {"value": "x", "type": "KW_BOOL"},
-    {"value": "adadsasd", "type": "KW_STR"},
-    {"value": "iamvar", "type": "SYMBOL"},
-    {"value": "testtest", "type": "LT_STRING"},
-    {"value": "testtest", "type": "SYMBOL"},
-    {"value": "testtest", "type": "KW_STR"},
-    {"value": "testtest", "type": "KW_NUMBER"},
-    {"value": "testtest", "type": "KW_STR"},
-    {"value": "testtest", "type": "SYMBOL"},
-    {"value": "testtest", "type": "KW_NUMBER"},
-    {"value": "testtest", "type": "LT_NUMBER"},
-    {"value": "testtest", "type": "LT_NUMBER"},
-    {"value": "testtest", "type": "SYMBOL"},
-    {"value": "testtest", "type": "KW_STR"},
-    {"value": "testtest", "type": "KW_NUMBER"},
-    {"value": "testtest", "type": "KW_STR"},
-    {"value": "testtest", "type": "LT_STRING"},
-    {"value": "testtest", "type": "SYMBOL"},
-    {"value": "testtest", "type": "KW_NUMBER"},
-    {"value": "testtest", "type": "KW_STR"},
-]
-
+# testing imports
 
 def cache_imported_arguments(arguments, file):
     file = Path(file)
@@ -693,8 +671,3 @@ def get_cached_import_arguments(file):
             print("not changed!")
         else:
             print("changed!")
-
-
-# cache_imported_arguments(arguments, "./example.js")
-
-get_cached_import_arguments("./example.js")
