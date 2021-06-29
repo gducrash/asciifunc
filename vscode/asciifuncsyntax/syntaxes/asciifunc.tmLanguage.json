@@ -34,7 +34,7 @@
 				},
 				{
 					"name": "variable.parameter.asciifunc",
-					"match": "(?!\\B\"[^\"]*)(\\w[a-zA-Z]*\\w)(?![^\"]*\"\\B)"
+					"match": "(?![^\"),']*(\"|')\\B)(\\w?[a-zA-Z]+\\w?(\\d+)?)(?![^\"),']*(\"|')\\B)"
 				}
 			]
 		},
@@ -50,5 +50,5 @@
 			]
 		}
 	},
-	"scopeName": "source.af"
+	"scopeName": "source.ascf"
 }

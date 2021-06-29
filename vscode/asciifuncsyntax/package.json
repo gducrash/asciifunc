@@ -18,7 +18,7 @@
 					"asciifunc"
 				],
 				"extensions": [
-					".af"
+					".ascf"
 				],
 				"configuration": "./language-configuration.json"
 			}
@@ -26,7 +26,7 @@
 		"grammars": [
 			{
 				"language": "asciifunc",
-				"scopeName": "source.af",
+				"scopeName": "source.ascf",
 				"path": "./syntaxes/asciifunc.tmLanguage.json"
 			}
 		]
