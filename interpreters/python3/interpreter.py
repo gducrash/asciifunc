@@ -1,4 +1,8 @@
 from typing import Union
+from pathlib import Path
+import hashlib
+import json
+import gzip
 
 from constants import ARG_NUM, ARG_TYPES, DEFAULT_VALUES, Types
 from extended import Bool, SignedNum
@@ -188,7 +192,6 @@ class Stack():
             if(s["scope"] == name):
                 self.stack.pop(index)
 
-        # TODO: check if len - 1 works - maybe need to check if less than half way then subtract 1?
         self.curr_scope = len(self.stack) - 1
         return
 
@@ -222,7 +225,7 @@ class Stack():
 
 
 # `STACK.new_stack_scope` will create a new local stack
-# use quotes in the name since variables can't have quotes in their names so the scope could not possible be
+# use quotes in the name since variables can't have quotes in their names so the scope could not possibly be
 # overridden
 STACK = Stack("\"global\"")
 
@@ -305,9 +308,9 @@ class Interpreter():
             # if strict mode is off, argument types and the number of arguments are not checked therefore there is no guarantee that
             # any of these command will have all the arguments required. to fix this we could check whether all the commands / command values
             # are `None` however this is messy and creates a lot of dupolicated code.
-            # instead, if the value requested does not exist, the `get_argument_value` will raise a `StopIteration` error. this will be
+            # instead, if the value requested does not exist, the `get_argument_value` will raise a `SkipCommand` error. this will be
             # caught by this try catch, and will just skip that command which is the desired behaviour.
-            # it only catches `StopIteration` so that any other exceptions will pass through
+            # it only catches `SkipCommand` so that any other exceptions will pass through
             try:
                 if(name == "$"):
                     if(is_recursive):
@@ -610,3 +613,88 @@ class Interpreter():
 
 def interpret(tokens: list) -> None:
     return Interpreter(tokens).exec()
+
+
+arguments = [
+    {"value": "x", "type": "KW_BOOL"},
+    {"value": "adadsasd", "type": "KW_STR"},
+    {"value": "iamvar", "type": "SYMBOL"},
+    {"value": "testtest", "type": "LT_STRING"},
+    {"value": "testtest", "type": "SYMBOL"},
+    {"value": "testtest", "type": "KW_STR"},
+    {"value": "testtest", "type": "KW_NUMBER"},
+    {"value": "testtest", "type": "KW_STR"},
+    {"value": "testtest", "type": "SYMBOL"},
+    {"value": "testtest", "type": "KW_NUMBER"},
+    {"value": "testtest", "type": "LT_NUMBER"},
+    {"value": "testtest", "type": "LT_NUMBER"},
+    {"value": "testtest", "type": "SYMBOL"},
+    {"value": "testtest", "type": "KW_STR"},
+    {"value": "testtest", "type": "KW_NUMBER"},
+    {"value": "testtest", "type": "KW_STR"},
+    {"value": "testtest", "type": "LT_STRING"},
+    {"value": "testtest", "type": "SYMBOL"},
+    {"value": "testtest", "type": "KW_NUMBER"},
+    {"value": "testtest", "type": "KW_STR"},
+]
+
+
+def cache_imported_arguments(arguments, file):
+    file = Path(file)
+
+    raw_code = open(file, "r")
+
+    raw_file_md5sum = hashlib.md5(raw_code.read().encode("utf-8")).hexdigest()
+    xor = ord(raw_file_md5sum[0])
+
+    raw_code.close()
+
+    cache_folder = Path("./.afcache")
+    cache_folder.mkdir(parents=True, exist_ok=True)
+
+    with open(cache_folder / f"{file.name}-af.afc", "wb") as f:
+        text = f"{raw_file_md5sum[0]}".encode()
+
+        arguments.insert(0, raw_file_md5sum)
+
+        for char in json.dumps(arguments, separators=(",", ":")):
+            text += chr(ord(char) ^ xor).encode()
+
+        f.write(gzip.compress(text))
+
+
+def get_cached_import_arguments(file):
+    file = Path(file)
+
+    if(not file.exists()):
+        raise ImportError(f"Could not find file `{file.name}`")
+
+    cache_folder = Path("./.afcache")
+
+    with open(cache_folder / f"{file.name}-af.afc", "rb") as f:
+        text = gzip.decompress(f.read())
+
+        xor = text[0]
+
+        decoded = ""
+
+        for char in text[1:]:
+            decoded += chr(char ^ xor)
+
+        decoded = json.loads(decoded)
+
+        md5sum = decoded[0]
+
+        raw_code = open(file, "r")
+        raw_file_md5sum = hashlib.md5(
+            raw_code.read().encode("utf-8")).hexdigest()
+
+        if(md5sum == raw_file_md5sum):
+            print("not changed!")
+        else:
+            print("changed!")
+
+
+# cache_imported_arguments(arguments, "./example.js")
+
+get_cached_import_arguments("./example.js")

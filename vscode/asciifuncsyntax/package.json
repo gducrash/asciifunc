@@ -1,0 +1,34 @@
+{
+	"name": "asciifuncsyntax",
+	"displayName": "asciifunc Syntax Highlighter",
+	"description": "Syntax highlighter for the asciifunc Esolang",
+	"version": "1.0.0",
+	"engines": {
+		"vscode": "^1.57.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "asciifunc",
+				"aliases": [
+					"asciifunc",
+					"asciifunc"
+				],
+				"extensions": [
+					".af"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "asciifunc",
+				"scopeName": "source.af",
+				"path": "./syntaxes/asciifunc.tmLanguage.json"
+			}
+		]
+	}
+}

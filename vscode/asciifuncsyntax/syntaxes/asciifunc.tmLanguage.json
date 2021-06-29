@@ -1,0 +1,54 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "asciifunc",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "comment.line.asciifunc",
+					"match": "^([^~$+=%:&!.@1#?/\"\\\\|><]).*"
+				},
+				{
+					"name": "keyword.control.asciifunc",
+					"match": "\\b(num|str|bool)\\b"
+				},
+				{
+					"name": "constant.numeric.asciifunc",
+					"match": "\\b([0-9]+)\\b"
+				},
+				{
+					"name": "constant.language.asciifunc",
+					"match": "\\b(false|true)\\b"
+				},
+				{
+					"name": "support.function.asciifunc",
+					"match": "^(~|\\$|\\+|=|%|:|&|!|\\.|@|\"|1|#|\\?|\/|\\\\|\\||>|\\<)(?=\\()"
+				},
+				{
+					"name": "variable.parameter.asciifunc",
+					"match": "(?!\\B\"[^\"]*)(\\w[a-zA-Z]*\\w)(?![^\"]*\"\\B)"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.asciifunc",
+			"begin": "(\"|')",
+			"end": "(\"|')",
+			"patterns": [
+				{
+					"name": "constant.character.escape.asciifunc",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.af"
+}

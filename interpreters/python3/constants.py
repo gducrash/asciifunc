@@ -102,5 +102,3 @@ DEFAULT_VALUES = {
     "str": "",
     "bool": Bool(False),
 }
-
-STRICT = False
