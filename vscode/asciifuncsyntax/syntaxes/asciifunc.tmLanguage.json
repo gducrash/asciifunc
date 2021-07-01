@@ -13,10 +13,6 @@
 		"keywords": {
 			"patterns": [
 				{
-					"name": "comment.line.asciifunc",
-					"match": "^(?!\\s*[~$+=%:&!.@1#?/\"\\\\|><]).*"
-				},
-				{
 					"name": "keyword.control.asciifunc",
 					"match": "\\b(num|str|bool)\\b"
 				},
@@ -30,7 +26,11 @@
 				},
 				{
 					"name": "support.function.asciifunc",
-					"match": "^(\\s*)(~|\\$|\\+|=|%|:|&|!|\\.|@|\"|1|#|\\?|\/|\\\\|\\||>|\\<)(?=\\()"
+					"match": "(\\s*)(~|\\$|\\+|=|%|:|&|!|\\.|@|\"|1|#|\\?|\/|\\\\|\\||>|\\<)(?=\\()"
+				},
+				{
+					"name": "comment.line.asciifunc",
+					"match": "[^)]+(?![^(]*\\))"
 				},
 				{
 					"name": "variable.parameter.asciifunc",
