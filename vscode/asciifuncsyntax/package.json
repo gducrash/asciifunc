@@ -1,5 +1,10 @@
 {
 	"name": "asciifuncsyntax",
+	"publisher": "DexterHill0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/GDUcrash/asciifunc/tree/main/vscode/asciifuncsyntax"
+	},
 	"displayName": "asciifunc Syntax Highlighter",
 	"description": "Syntax highlighter for the asciifunc Esolang",
 	"version": "1.0.0",

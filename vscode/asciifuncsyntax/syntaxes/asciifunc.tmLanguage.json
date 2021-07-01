@@ -14,7 +14,7 @@
 			"patterns": [
 				{
 					"name": "comment.line.asciifunc",
-					"match": "^([^~$+=%:&!.@1#?/\"\\\\|><]).*"
+					"match": "^(?!\\s*[~$+=%:&!.@1#?/\"\\\\|><]).*"
 				},
 				{
 					"name": "keyword.control.asciifunc",
@@ -30,7 +30,7 @@
 				},
 				{
 					"name": "support.function.asciifunc",
-					"match": "^(~|\\$|\\+|=|%|:|&|!|\\.|@|\"|1|#|\\?|\/|\\\\|\\||>|\\<)(?=\\()"
+					"match": "^(\\s*)(~|\\$|\\+|=|%|:|&|!|\\.|@|\"|1|#|\\?|\/|\\\\|\\||>|\\<)(?=\\()"
 				},
 				{
 					"name": "variable.parameter.asciifunc",

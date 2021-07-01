@@ -110,6 +110,9 @@ dist
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# Python import caches
+__pycache__
+
 # yarn v2
 .yarn/cache
 .yarn/unplugged
