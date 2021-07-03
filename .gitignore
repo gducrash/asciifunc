@@ -84,7 +84,6 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
@@ -112,6 +111,8 @@ dist
 
 # Python import caches
 __pycache__
+# asciifunc import caches
+.afcache
 
 # yarn v2
 .yarn/cache
