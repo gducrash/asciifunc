@@ -1,9 +1,8 @@
 from pathlib import Path
-from base64 import b64encode
 
 from constants import COMMANDS
 
-__all__ = ["tokenize", "write_tokenised_to_file"]
+__all__ = ["tokenize"]
 
 
 class CONTEXTS:
@@ -129,4 +128,5 @@ def tokenise(file: Path) -> list[Token]:
                         var_name = ""
 
     add_token("EOF", "EOF")
+
     return tokens

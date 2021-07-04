@@ -1,4 +1,4 @@
-from extended import Bool
+from extended import Bool, SignedNum
 
 COMMANDS = ["~", "$", "+", "=", "%", ":", "&", "!", ".",
             "@", "\"", "1", "#", "?", "/", "\\", "|", ">", "<"]
@@ -49,7 +49,7 @@ class Types:
     KW_BOOL = "KW_BOOL"
 
     VARIABLE = "SYMBOL"
-    KEYWORDS = [KW_NUMBER, KW_STRING, KW_BOOL, LT_BOOL]
+    KEYWORDS = [KW_NUMBER, KW_STRING, KW_BOOL]
 
     # the reason both `KW_NUMBER` and `VARIABLE` are included is because, when the tokens are being converted to commands,
     # the type of a varible is unknown, so it can only be check to make sure it is a `SYMBOL` (VARIABLE)
@@ -71,11 +71,12 @@ class Types:
 
 
 ARG_TYPES = {
-    "$": [Types.VARIABLE, Types.KEYWORDS],
+    "~": [Types.LT_STRING],
 
+    "$": [Types.VARIABLE, Types.KEYWORDS],
     "+": [Types.KW_NUMBER, Types.ANY_NUMBER],
     "=": [Types.KW_NUMBER, Types.ANY_NUMBER],
-    "%": [Types.ANY_VAR, Types.ANY_VAR, Types.KW_NUMBER],
+    "%": [Types.ANY, Types.ANY, Types.KW_NUMBER],
     ":": [Types.KW_STRING, Types.ANY_STRING],
     "&": [Types.KW_STRING, Types.ANY],
     "!": [Types.ANY_VAR],
@@ -84,7 +85,7 @@ ARG_TYPES = {
     "@": [[Types.KW_STRING, Types.KW_NUMBER], Types.ANY_NUMBER, Types.ANY_NUMBER],
 
     "\"": [Types.ANY_VAR, Types.KW_STRING],
-    "1`": [Types.ANY_VAR, Types.KW_NUMBER],
+    "1": [Types.ANY_VAR, Types.KW_NUMBER],
 
     "#": [Types.LT_NUMBER],
     "?": [Types.ANY_VAR, Types.LT_NUMBER, Types.LT_NUMBER],
@@ -98,7 +99,7 @@ ARG_TYPES = {
 }
 
 DEFAULT_VALUES = {
-    "num": 0,
+    "num": SignedNum(0),
     "str": "",
     "bool": Bool(False),
 }

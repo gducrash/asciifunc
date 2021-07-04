@@ -83,3 +83,15 @@ class ArgumentNumberError(Exception):
             super().__init__(self.message)
         else:
             raise SkipCommandError
+
+
+class ImportError(Exception):
+    # raised if a variable is undefined
+
+    def __init__(self, file_name: str):
+        self.message = f"Could not find file: `{file_name}`."
+
+        if(Errors.STRICT):
+            super().__init__(self.message)
+        else:
+            raise SkipCommandError

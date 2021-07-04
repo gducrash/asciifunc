@@ -1,5 +1,7 @@
 from typing import Union
 
+__all__ = ["SignedNum", "Bool"]
+
 
 def get_flipped_sign(num, sign):
     if(num >= 0 and sign):
@@ -39,11 +41,8 @@ class SignedFloat(float):
     __radd__ = __add__
 
     def __sub__(self, other) -> int:
-        if(self.sign == "-"):
-            return super(SignedFloat, self).__add__(other)
-        else:
-            num = super(SignedFloat, self).__sub__(other)
-            return SignedFloat(num, get_flipped_sign(num, self.sign))
+        num = super(SignedFloat, self).__sub__(other)
+        return SignedFloat(num, get_flipped_sign(num, self.sign))
 
     __rsub__ = __sub__
 
@@ -77,11 +76,8 @@ class SignedInt(int):
     __radd__ = __add__
 
     def __sub__(self, other) -> int:
-        if(self.sign == "-"):
-            return super(SignedInt, self).__add__(other)
-        else:
-            num = super(SignedInt, self).__sub__(other)
-            return SignedInt(num, get_flipped_sign(num, self.sign))
+        num = super(SignedInt, self).__sub__(other)
+        return SignedInt(num, get_flipped_sign(num, self.sign))
 
     __rsub__ = __sub__
 
@@ -106,10 +102,20 @@ class Bool(int):
     # custom bool class to allow for lowercase bools in strings
 
     def __new__(self, type: bool):
+        if(isinstance(type, str)):
+            return int.__new__(self, self.from_string(self, type))
+
         return int.__new__(self, type)
 
     def __init__(self, type: bool) -> None:
+        if(isinstance(type, str)):
+            self.type = self.from_string(type)
+            return
+
         self.type = type
+
+    def from_string(self, val):
+        return 0 if val == "false" else 1
 
     def __invert__(self):
         return Bool(not self.type)

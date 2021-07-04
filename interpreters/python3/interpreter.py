@@ -1,13 +1,15 @@
+
 from typing import Union
 from pathlib import Path
 import hashlib
 import json
 import gzip
 
+from tokenise import tokenise
 from constants import ARG_NUM, ARG_TYPES, DEFAULT_VALUES, Types
 from extended import Bool, SignedNum
 # lots of errors :)
-from errors import AlreadyDefinedError, ArgumentNumberError, InvalidArgumentTypeError, InvalidVariableTypeError, SkipCommandError, UknownTypeError, UndefinedError
+from errors import AlreadyDefinedError, ArgumentNumberError, InvalidArgumentTypeError, InvalidVariableTypeError, SkipCommandError, UknownTypeError, UndefinedError, ImportError
 
 __all__ = ["interpret"]
 
@@ -200,11 +202,14 @@ class Stack():
         self.stack[self.curr_scope]["variables"].append(var)
 
     def get_variable(self, scope, name, _raise):
-        vars = self.stack[scope]["variables"]
 
-        for var in vars:
-            if(var.name == name):
-                return var
+        # get all the scopes up until ours because we dont need to search a scope "lower down" since we couldnt possibly
+        # get a variable from there anyway
+        # then reverse the scopes so that we start searching at out scope, and work our way up to the global scope
+        for scope in self.stack[:self.curr_scope + 1][::-1]:
+            for var in scope["variables"]:
+                if(var.name == name):
+                    return var
 
         # `_raise` determines whether to skip that command if the variable doesnt exist
         if(_raise):
@@ -221,7 +226,13 @@ class Stack():
         return self.get_variable(self.curr_scope - 1, name, _raise)
 
     def is_stack_variable(self, name: str) -> bool:
-        return bool(self.get_stack_variable(name))
+        scope = self.stack[self.curr_scope]
+
+        for var in scope["variables"]:
+            if(var.name == name):
+                return True
+
+        return False
 
 
 # `STACK.new_stack_scope` will create a new local stack
@@ -269,13 +280,16 @@ class Interpreter():
                         break
 
                     if(t.type == "ARG"):
-                        command.add_argument("SYMBOL", t.value)
+                        command.add_argument(Types.VARIABLE, t.value)
 
                     elif(t.type in ["LT_NUM", "LT_NUM+", "LT_NUM-"]):
                         # the `replace` will either leave `+` or `-` or just `` if there is no sign
                         val = SignedNum(
                             t.value, t.type.replace("LT_NUM", ""))
-                        command.add_argument("LT_NUM", val)
+                        command.add_argument(Types.LT_NUMBER, val)
+
+                    elif(t.type == Types.LT_BOOL):
+                        command.add_argument(Types.LT_BOOL, Bool(t.value))
 
                     elif(t.type in Types.KEYWORDS):
                         command.add_argument(t.type, t.value)
@@ -312,7 +326,33 @@ class Interpreter():
             # caught by this try catch, and will just skip that command which is the desired behaviour.
             # it only catches `SkipCommand` so that any other exceptions will pass through
             try:
-                if(name == "$"):
+                if(name == "~"):
+                    file = Path(command.get_argument_checked(0))
+
+                    interp = Interpreter([])
+
+                    if(not file.exists()):
+                        raise ImportError(file.name)
+
+                    if(is_cache_up_to_date(file)):
+                        args = get_cached_import_arguments(file)
+
+                        # interpret the import function which puts all variables and functions into the scope
+                        interp.commands = args
+                        interp.exec()
+
+                    else:
+                        tokens = tokenise(file)
+                        # re init the class with the new tokens
+                        interp.__init__(tokens)
+
+                        # now the tokens are commands we can cache it to the file
+                        cache_imported_arguments(interp.commands, file)
+
+                        # and finally we can execute the arguments to add the stuff to the scope
+                        interp.exec()
+
+                elif(name == "$"):
                     if(is_recursive):
                         raise SkipCommandError
 
@@ -354,12 +394,15 @@ class Interpreter():
                     var2 = command.get_argument_checked(1)
                     var3 = command.get_argument_checked(2)
 
-                    if(var1.value == var2.value):
-                        var3.set_value(0)
-                    elif(var1.value > var2.value):
-                        var3.set_value(1)
-                    else:
-                        var3.set_value(-1)
+                    try:
+                        if(var1.value == var2.value):
+                            var3.set_value(SignedNum(0))
+                        elif(var1.value > var2.value):
+                            var3.set_value(SignedNum(1))
+                        else:
+                            var3.set_value(SignedNum(-1, "-"))
+                    except TypeError:
+                        var3.set_value(SignedNum(-1, "-"))
 
                 elif(name == ":"):
                     var1 = command.get_argument_checked(0)
@@ -406,7 +449,7 @@ class Interpreter():
                     var2 = command.get_argument_checked(1)
 
                     if(var1.type == Types.KW_NUMBER):
-                        var2.set_value(var1.value.get_sign() + str(var1.value))
+                        var2.set_value(str(var1.value))
                     elif(var1.type == Types.KW_BOOL):
                         var2.set_value(str(var1.value))
 
@@ -425,7 +468,7 @@ class Interpreter():
                     if(var1.value.get_sign() == "+"):
                         pointer.move_forward(var1.value - 1)
                     elif(var1.value.get_sign() == "-"):
-                        pointer.move_backward(abs(var1.value))
+                        pointer.move_backward(var1.value - 1)
 
                     else:
                         pointer.set_pos(var1.value - 1)
@@ -438,7 +481,7 @@ class Interpreter():
                         if(var2.value.get_sign() == "+"):
                             pointer.move_forward(var2.value - 1)
                         elif(var2.value.get_sign() == "-"):
-                            pointer.move_backward(abs(var1.value))
+                            pointer.move_backward(var2.value - 1)
 
                         else:
                             pointer.set_pos(var2.value - 1)
@@ -449,7 +492,7 @@ class Interpreter():
                         if(var3.value.get_sign() == "+"):
                             pointer.move_forward(var3.value - 1)
                         elif(var3.value.get_sign() == "-"):
-                            pointer.move_backward(abs(var3.value))
+                            pointer.move_backward(var3.value - 1)
 
                         else:
                             pointer.set_pos(var3.value - 1)
@@ -511,17 +554,7 @@ class Interpreter():
                     func = STACK.get_stack_variable(var1.value)
 
                     if(func is None):
-                        # to allow for recursive functions, see if the variable exists in the scope above
-                        func = STACK.get_parent_stack_variable(var1.value)
-
-                        if(func is None):
-                            raise UndefinedError(var1.value)
-
-                        else:
-                            # if it does exist in the parent scope, also add it to the current scope
-                            # bit bodgey but it works
-                            STACK.push_stack_variable(
-                                Function(func.name, func.pos, func.arguments))
+                        raise UndefinedError(var1.value)
 
                     ret_var = None
 
@@ -531,13 +564,13 @@ class Interpreter():
 
                         # try and get all the values of the arguments passed to the function
                         # and put them in the array
-                        for arg in command.arguments[1:len(func.arguments)+1]:
+                        for arg in command.arguments[1:len(func.arguments) + 1]:
 
                             if(arg.type == Types.VARIABLE):
                                 val = STACK.get_stack_variable(arg.value)
 
                                 if(val is None):
-                                    raise UndefinedError(var1.value)
+                                    raise UndefinedError(arg.value)
 
                                 argument_values.append(
                                     {"type": val.type, "value": val.value})
@@ -547,14 +580,19 @@ class Interpreter():
                                 argument_values.append(
                                     {"type": Types.LITERAL_TO_VAR[arg.type], "value": arg.value})
 
-                        # if the number of arguments in this command is 1 greater than the number of parameters in the function,
+                        # if the number of arguments in this command is greater than the number of parameters in the function + 1,
                         # consider the last argument to be the return value
-                        if(len(command.arguments) + 1 < len(func.arguments)):
-                            ret_var = command.get_argument_checked(-1)
+                        if(len(command.arguments[1:]) > len(func.arguments)):
+                            ret_var = command.get_argument_raw(-1)
 
-                            if(ret_var.type != Types.VARIABLE):
+                            if(not STACK.is_stack_variable(ret_var.value)):
+                                raise UndefinedError(ret_var.value)
+
+                            ret_var = STACK.get_stack_variable(ret_var.value)
+
+                            if(ret_var.type not in Types.ANY_VAR):
                                 raise InvalidArgumentTypeError(command.name, len(
-                                    func.arguments), Types.VARIABLE, ret_var.type)
+                                    func.arguments), Types.ANY_VAR, ret_var.type)
 
                     # add function call to history
                     STACK.push_new_call(func.name, pointer.pos, ret_var)
@@ -615,10 +653,13 @@ def interpret(tokens: list) -> None:
     return Interpreter(tokens).exec()
 
 
-# testing imports
+CACHE_FOLDER = Path("./.afcache")
+CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+
 
 def cache_imported_arguments(arguments, file):
     file = Path(file)
+    c_name = f"{file.name}-af.afc"
 
     raw_code = open(file, "r")
 
@@ -627,13 +668,8 @@ def cache_imported_arguments(arguments, file):
 
     raw_code.close()
 
-    cache_folder = Path("./.afcache")
-    cache_folder.mkdir(parents=True, exist_ok=True)
-
-    with open(cache_folder / f"{file.name}-af.afc", "wb") as f:
-        text = f"{raw_file_md5sum[0]}".encode()
-
-        arguments.insert(0, raw_file_md5sum)
+    with open(CACHE_FOLDER / c_name, "wb") as f:
+        text = f"{raw_file_md5sum}".encode()
 
         for char in json.dumps(arguments, separators=(",", ":")):
             text += chr(ord(char) ^ xor).encode()
@@ -641,33 +677,36 @@ def cache_imported_arguments(arguments, file):
         f.write(gzip.compress(text))
 
 
-def get_cached_import_arguments(file):
+def is_cache_up_to_date(file):
     file = Path(file)
+    c_name = f"{file.name}-af.afc"
 
-    if(not file.exists()):
-        raise ImportError(f"Could not find file `{file.name}`")
+    if(not (CACHE_FOLDER / c_name).exists()):
+        return False
 
-    cache_folder = Path("./.afcache")
-
-    with open(cache_folder / f"{file.name}-af.afc", "rb") as f:
+    with open(CACHE_FOLDER / c_name, "rb") as f:
         text = gzip.decompress(f.read())
-
-        xor = text[0]
-
-        decoded = ""
-
-        for char in text[1:]:
-            decoded += chr(char ^ xor)
-
-        decoded = json.loads(decoded)
-
-        md5sum = decoded[0]
+        md5sum = text[0:32]
 
         raw_code = open(file, "r")
         raw_file_md5sum = hashlib.md5(
             raw_code.read().encode("utf-8")).hexdigest()
 
-        if(md5sum == raw_file_md5sum):
-            print("not changed!")
-        else:
-            print("changed!")
+        raw_code.close()
+
+        return md5sum == raw_file_md5sum
+
+
+def get_cached_import_arguments(file):
+    file = Path(file)
+    c_name = f"{file.name}-af.afc"
+
+    with open(CACHE_FOLDER / c_name, "rb") as f:
+        text = gzip.decompress(f.read())
+        xor = text[0:32][0]
+
+        decoded = ""
+        for char in text[32:]:
+            decoded += chr(char ^ xor)
+
+        return json.loads(decoded)

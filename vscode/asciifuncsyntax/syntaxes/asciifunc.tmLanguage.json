@@ -34,7 +34,7 @@
 				},
 				{
 					"name": "variable.parameter.asciifunc",
-					"match": "((\\d+)?[a-zA-Z]+(\\d+)?)(?![^\"),']*(\"|')\\B)"
+					"match": "((\\d+)?[a-zA-Z_]+(\\d+)?)(?![^\"),']*(\"|')\\B)"
 				}
 			]
 		},
