@@ -17,16 +17,16 @@
 					"match": "\\b(num|str|bool)\\b"
 				},
 				{
-					"name": "constant.numeric.asciifunc",
-					"match": "\\b([0-9]+)\\b"
-				},
-				{
 					"name": "constant.language.asciifunc",
 					"match": "\\b(false|true)\\b"
 				},
 				{
 					"name": "support.function.asciifunc",
 					"match": "(\\s*)(~|\\$|\\+|=|%|:|&|!|\\.|@|\"|1|#|\\?|\/|\\\\|\\||>|\\<)(?=\\()"
+				},
+				{
+					"name": "constant.numeric.asciifunc",
+					"match": "\\b([0-9]+)\\b"
 				},
 				{
 					"name": "comment.line.asciifunc",
