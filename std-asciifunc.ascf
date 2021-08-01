@@ -161,14 +161,14 @@ indexes start at 0, `1` is the 2nd character
 
 	get the length of the string to search for
 	allows for searching for multiple characters
-	$(length, num)
-	|(len, tchr, length)
+	$(lengthh, num)
+	|(len, tchr, lengthh)
 
 	$(previ, num)
 
 	go from 0 to the length of the string to search for
 	$(curri, num)
-	=(curri, length)
+	=(curri, lengthh)
 
 	backup strings like in `len`
 	$(bckp, str)
@@ -202,17 +202,17 @@ indexes start at 0, `1` is the 2nd character
 \(findex)
 
 /(insert, string, chr, index)
-	$(length, num)
+	$(lengthh, num)
 	get the length of the string
-	|(len, string, length)
+	|(len, string, lengthh)
 
 	$(total, num)
-	+(total, length)
+	+(total, lengthh)
 	
 	to substring we need to know the `finished` length of the string so we add
 	the length of the characters to insert to the total length
-	|(len, chr, length)
-	+(total, length)
+	|(len, chr, lengthh)
+	+(total, lengthh)
 
 	$(string2, str)
 	`backup` the string to do the second substring
