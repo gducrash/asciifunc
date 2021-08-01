@@ -359,12 +359,3 @@ operations for decimal numbers?
 /(sqrt, a)
 \()
 ----------------------------
-
-$(outputnum, num)
-$(outputbool, bool)
-$(outputstr, str)
-
-|(replace, "I am a string", "am", "amb", outputstr)
-
-<(outputstr)
-
