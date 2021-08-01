@@ -1,6 +1,16 @@
 # AsciiFunc
 AsciiFunc is an esoteric programming language, that consists of multiple commands, each represented with it's own ascii character. Commands can also have arguments: variables, numbers, bools, strings and pointers. Note that comamnds cannot be stacked, meaning you can't have an argument for a command be another command.
 
+## How to Install
+For the Node.js interpreter (the only interpreter that is fully complete, as of now):
+- Download and install Node.js
+- Clone or download this repo
+- Go to `interpreters/nodejs/` and open command prompt 
+- Type `npm install`
+- After that, type `node index -f path/to/your/asciifunc/file`
+
+(NOTE: as of right now, import paths are viewed from the location of the interpreter, this issue will be fixed in the future)
+
 ## Commands
 | Name | Arguments                                                                        | Description                                                                                                                                                                                                                  | Example                                                                                                                                                 |
 |------|----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
