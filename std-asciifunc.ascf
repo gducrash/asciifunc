@@ -338,9 +338,9 @@ very slow
 
 	?(b, +1, +4)
 	multiply numbers in a loop
-	|(multiply, a, c, c)
+	|(mult, a, c, c)
 	+(b, -1)
-	#(-4)
+	#(-3)
 \(c)
 ----------------------------
 

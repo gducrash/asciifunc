@@ -1,0 +1,11 @@
+~("../../std-asciifunc.ascf")
+
+$(num1, num)
+=(num1, 4)
+$(pow, num)
+=(pow, 2)
+
+$(num2, num)
+<(pow)
+|(pow, num1, pow, num2)
+<(num2)
