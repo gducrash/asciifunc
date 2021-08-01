@@ -238,6 +238,41 @@ function evaluateProgram(tokensList) {
         let command = commands[pointer];
         if(command.function != func) continue;
         switch(command.name) {
+            case '~':
+                if(performCheck(command.arguments[0], 'string')) continue;
+                // read code from file
+                let importCode = readCodeFromFile(command.arguments[0].value);
+                if(importCode) {
+                    // run the code. since evaluateProgram outputs the resulting
+                    // stack, we can just merge it into an existing stack
+                    let program = evaluateProgram(tokenizeCode(importCode));
+                    let importStack = program.stack;
+                    let importCommands = program.commands;
+                    if(importStack) {
+                        // get global stack layer
+                        importStack = importStack[importStack.length-1];
+                        // update indexes
+                        Object.keys(importStack.functions).forEach(fk => {
+                            let f = importStack.functions[fk];
+                            f.pointer += commands.length;
+                        });
+
+                        let prevCommands = commands.slice(0);
+                        importCommands.forEach(c => {
+                            if(['#', '?'].includes(c.name)) {
+                                let indexArg = c.arguments[0];
+                                if(indexArg.type == 'number' && indexArg.value >= 0 && c.function != '"global"') {
+                                    c.arguments[0].value += prevCommands.length;
+                                }
+                            }
+                            commands.push(c);
+                        });
+
+                        // merge global stacks together
+                        Object.assign(stack[0], importStack);
+                    }
+                }
+                break;
             case '$':
                 if(performCheck(command.arguments[0], 'identifier')) continue;
                 let varName = command.arguments[0].value;
@@ -522,7 +557,7 @@ function evaluateProgram(tokensList) {
                     }
                 });
                 let retVar = command.arguments[argi+1];
-                if(performCheck(retVar.value, 'identifier', 'var')) {
+                if(retVar && performCheck(retVar.value, 'identifier', 'var')) {
                     retVar = getVar(retVar);
                 } else {
                     retVar = null;
@@ -539,7 +574,19 @@ function evaluateProgram(tokensList) {
                 break;
         }
     }
-    return stack[0];
+    return {stack: stack, commands: commands};
+}
+
+function readCodeFromFile(file) {
+    let s;
+    if(file) {
+        if(fs.existsSync(file)) s = fs.readFileSync(file);
+        if(s) {
+            s = s.toString();
+            s = s.replace(/(?<!\\)\\(\\\\)*(?!\\)n/g,"\n"); // replace "\n" if files with actual new lines
+        }
+    }
+    return s;
 }
 
 let code;
@@ -552,11 +599,5 @@ for(let i = 0; i < arguments.length; i++) {
     }
 }
 
-if(file) {
-    code = fs.readFileSync(file);
-    if(code) {
-        code = code.toString();
-        code = code.replace(/(?<!\\)\\(\\\\)*(?!\\)n/g,"\n");
-        evaluateProgram(tokenizeCode(code));
-    }
-}
+code = readCodeFromFile(file) 
+if(code) evaluateProgram(tokenizeCode(code));

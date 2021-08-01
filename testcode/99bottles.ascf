@@ -1,14 +1,24 @@
-declare vars
-$(bottles, num) $(lyric, str) 
 
-set bottles to 100 - it will subtract -1 before printing
-=(bottles, 99) 
+/(99bottles)
+    declare vars
+    $(bottles, num) $(lyric, str) $(returnVal, str)
 
-begin loop
-:(lyric, "") 
-&(lyric, bottles) &(lyric, " bottles of beer on the wall, ") 
-&(lyric, bottles) &(lyric, " bottles of beer") <(lyric)
-:(lyric, "Take one down and pass it around, ") +(bottles, -1) 
-&(lyric, bottles) &(lyric, " bottles of beer on the wall") 
-<(lyric) :(lyric, "") <(lyric) 
-?(bottles, 3)
+    set bottles to 100 - it will subtract -1 before printing
+    =(bottles, 99) 
+
+    begin loop
+    :(lyric, "") 
+    &(lyric, bottles) &(lyric, " bottles of beer on the wall, ") 
+    &(lyric, bottles) &(lyric, " bottles of beer\n") 
+    &(returnVal, lyric)
+    
+    :(lyric, "Take one down and pass it around, ") +(bottles, -1) 
+    &(lyric, bottles) &(lyric, " bottles of beer on the wall\n\n") 
+    &(returnVal, lyric) 
+
+    ?(bottles, -11)
+\(returnVal)
+
+$(song, str)
+|(99bottles, song)
+<(song)
