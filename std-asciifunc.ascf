@@ -83,18 +83,27 @@
 
 ---------------------------- misc
 `a` can be 0 or 1 or `true` or `false`
-/(to_bool, a)
+
+/(num_to_bool, a)
+	@(a, 0, 1)
+	$(b, bool)
+	!(b)
+	?(a, +2)
+	!(b)
+\(b)
+
+/(str_to_bool, a)
+	$(b, bool)
+
+	$(t, str)
+	:(t, "true")
+
+	.(a)
 	$(c, num)
-	$(d, bool)
-
-	|(eq, a, "true", c)
-	?(c, +1, +2)
-	!(d)
-
-	|(eq, a, 1, c)
-	?(c, +1, +2)
-	!(d)
-\(d)
+	%(a, t, c)
+	?(c, +2)
+	!(b)
+\(b)
 
 /(is_dec, a)
 	$(c, num)

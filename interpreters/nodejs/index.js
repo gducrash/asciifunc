@@ -540,14 +540,16 @@ function evaluateProgram(tokensList) {
                 let argi = 0;
                 targetFunctionData.arguments.forEach(a => {
                     argi++;
-                    let argType = 'num';
-                    if(a.value.startsWith('str_')) argType = 'str';
-                    else if(a.value.startsWith('bool_')) argType = 'bool'; 
-                    let argVal = defaultValues[argType];
-                    let curArg = command.arguments[argi]
+
+                    let curArg = command.arguments[argi];
                     if(!performCheck(curArg, 'identifier', 'var')) {
                         curArg = getVar(curArg);
                     }
+                    
+                    let argType = 'num';
+                    if(curArg) argType = curArg.type;
+                    
+                    let argVal = defaultValues[argType];
                     if(curArg && curArg.type.slice(0,3) == argType.slice(0,3))
                         argVal = curArg.value;
 
