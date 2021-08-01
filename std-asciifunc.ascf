@@ -1,0 +1,370 @@
+---------------------------- boolean logic operators
+/(not, a)
+	$(c, num)
+
+	if `c` is 1 or 2, it will set it to -1. if `c` is 0, it will skip and stay as 0. 1 will be added to both so by the end
+	`c` should be either 0 or 1
+	?(a, +1, +2)
+	=(c, -1)
+
+	+(c, 1)
+\(c)
+
+/(and, a, b)
+	$(c, num)
+
+	?(a, +1, +2)
+	`c` can be either 0 or 1
+	+(c, 1)
+
+	?(b, +1, +2)
+	`c` can now be either 1 or 2
+	+(c, 1)
+
+	subtracting 1 means `c` can be either -1, 0 or 1
+	+(c, -1)
+
+	clamping `c` between 0 and 1 means -1 and 0 become 0 and 1 stays as 1
+	@(c, 0, 1)
+\(c)
+
+/(or, a, b)
+	$(c, num)
+
+	?(a, +1, +2)
+	`c` can be either 0 or 1
+	+(c, 1)
+
+	?(b, +1, +2)
+	`c` can now be either 1 or 2
+	+(c, 1)
+
+	clamping `c` between 0 and 1 means 0 stays as 0 and 1 and 2 become 1
+	@(c, 0, 1)
+\(c)
+----------------------------
+
+---------------------------- logic operators 
+/(gt, a, b)
+	$(c, num)
+
+	compare a and b. if they are equal, `c` will be 0, if a is greater `c` will be 1, otherwise `c` will be -1
+	%(a, b, c)
+
+	clamp `c` between 0 and 1. so -1 and 0 will become 0 and 1 will stay as 1
+	@(c, 0, 1)
+\(c)
+
+/(lt, a, b)
+	$(c, num)
+
+	%(a, b, c)
+
+	`c` can be either 1 or 2 if `a` is greater than `b` or equal to `b` or it can be 0 if it is less than `b`
+	+(c, 1)
+
+	flip the value of `c` and store into `c`
+	|(not, c, c)
+\(c)
+
+/(eq, a, b)
+	$(c, num)
+	
+	a == b: 0, a > b: 1, a < b: -1
+	%(a, b, c)
+
+	0 / 1 stays as 0 / 1 and -1 become 1
+	|(abs, c, c)
+	
+	flip so 0 becomes 1 and 1 become 0
+	|(not, c, c)
+\(c)
+----------------------------
+
+---------------------------- misc
+`a` can be 0 or 1 or `true` or `false`
+/(to_bool, a)
+	$(c, num)
+	$(d, bool)
+
+	|(eq, a, "true", c)
+	?(c, +1, +2)
+	!(d)
+
+	|(eq, a, 1, c)
+	?(c, +1, +2)
+	!(d)
+\(d)
+
+/(is_dec, a)
+	$(c, num)
+	$(truncated, num)
+
+	truncate the decimal
+	|(trunc, a, truncated)
+
+	if the truncated value is less than the original it was a decimal
+	|(lt, truncated, a, c)
+\(c)
+----------------------------
+
+---------------------------- string functions
+/(len, string)
+	$(e, num)
+
+	current and prev indexes for trimming string
+	$(curri, num)
+	=(curri, 1)
+
+	$(previ, num)
+
+	keeping a backup of the original string since trimming is destructive
+	$(bckp, str)
+	:(bckp, string)
+
+	reset the string from the backup
+	:(string, bckp)
+
+	trim it with the indexes to get a single character
+	@(string, previ, curri)
+
+	if the character is blank the end of the string has been reached
+	?(string, +2, +1)
+	skip to the end if the character is blank
+	#(+4)
+
+	increment the indexes and jump back
+	+(curri, 1)
+	+(previ, 1)
+	#(-6)
+\(previ)
+
+indexes start at 0, `1` is the 2nd character
+/(indexof, string, tchr, index)
+	$(e, num)
+	$(count, num)
+	=(count, -1)
+
+	-1 is default value if not found
+
+	$(findex, num)
+	=(findex, -1)
+
+	get the length of the string to search for
+	allows for searching for multiple characters
+	$(length, num)
+	|(len, tchr, length)
+
+	$(previ, num)
+
+	go from 0 to the length of the string to search for
+	$(curri, num)
+	=(curri, length)
+
+	backup strings like in `len`
+	$(bckp, str)
+	:(bckp, string)
+
+	:(string, bckp)
+
+	@(string, previ, curri)
+
+	if the end of the string is reached, return
+	?(string, +2, +1)
+	#(+11)
+
+	check if the current substring is equal to the string to be found
+	|(eq, string, tchr, e)
+	?(e, +1, +6)
+	set the found index
+	=(findex, previ)
+	increment how many times we have found this string
+	+(count, 1)
+
+	if the amount of times it has been found is equal to the index then return
+	|(eq, count, index, e)
+	?(e, +1, +2)
+	#(+4)
+
+	increment the indexes and jump
+	+(curri, 1)
+	+(previ, 1)
+	#(-13)
+\(findex)
+
+/(insert, string, chr, index)
+	$(length, num)
+	get the length of the string
+	|(len, string, length)
+
+	$(total, num)
+	+(total, length)
+	
+	to substring we need to know the `finished` length of the string so we add
+	the length of the characters to insert to the total length
+	|(len, chr, length)
+	+(total, length)
+
+	$(string2, str)
+	`backup` the string to do the second substring
+	:(string2, string)
+
+	$(new, str)
+
+	substring from 0 to the index
+	@(string, 0, index)
+
+	concat the string and character
+	&(new, string)
+	&(new, chr)
+
+	substring the rest of the string
+	@(string2, index, total)
+	
+	concat to new string
+	&(new, string2)
+\(new)
+
+/(replace, string, trchr, rchr)
+	couldnt get working
+\(new)
+
+
+----------------------------
+
+---------------------------- math functions
+/(abs, a)
+	$(c, num)
+
+	check if `a` is greater than 0 [meaning it doesnt need flipping]
+	|(gt, a, 0, c)
+
+	if `c` is 0, it is not > 0  so it must be multipled by -1, otherwise just skip
+	?(c, +2, +1)
+	!(a)
+\(a)
+
+/(trunc, a)
+	$(c, str)
+	$(point, num)
+
+	convert value to a string
+	"(a, c)
+
+	get the index of the decimal point
+	|(indexof, c, ".", point)
+
+	trim the string until the decimal to remove the decimals
+	@(c, 0, point)
+
+	convert it back to a number
+	1(c, a)
+\(a)
+
+/(round, a)
+	$(e, num)
+	$(isneg, num)
+	$(truncated, num)
+	$(diff, num)
+
+	store whether the original value was negative
+	|(lt, a, 0, isneg)
+
+	get the absolute value to make stuff easier
+	|(abs, a, a)
+
+	get rid of the decimals
+	|(trunc, a, truncated)
+
+	=(diff, a)
+	
+	flip truncated so that `+` takes away instead of adding
+	!(truncated)
+	
+	diff will now be ONLY the decimals
+	+(diff, truncated)
+	
+	flip trunc back to a positive
+	!(truncated)
+
+	if the difference [decimals] is greater than 0.4 we add 1
+	otherwise we skip
+	|(gt, diff, 0.4, e)
+	?(e, +1, +2)
+	+(truncated, 1)
+
+	and now, if the original value was negative we flip the rounded value
+	otherwise we return
+	?(isneg, +1, +2)
+	!(truncated)
+
+\(truncated)
+
+/(mult, a, b)
+	$(aisneg, num)
+	$(bisneg, num)
+	$(c, num)
+
+	take note of whether the numbers are negative
+	|(lt, a, 0, aisneg)
+	|(lt, b, 0, bisneg)
+
+	make all positive so the loop will work
+	|(abs, a, a)
+	|(abs, b, b)
+
+	multiply the numbers
+    +(c, a)
+    +(b, -1)
+    ?(b, -2)
+
+	if any of the numbers were originally negative, flip the output back
+	?(aisneg, +1, +2)
+	!(c)
+
+	?(bisneg, +1, +2)
+	!(c)
+\(c)
+
+/(div, a, b)
+ 	hard since decimal numbers are hard
+\()
+
+very slow
+/(pow, a, b)
+	$(c, num)
+	default value is 1 since x^0 is 1
+	=(c, 1)
+
+	?(b, +1, +4)
+	multiply numbers in a loop
+	|(multiply, a, c, c)
+	+(b, -1)
+	#(-4)
+\(c)
+----------------------------
+
+----------------------------
+operations for decimal numbers?
+
+/(dec_div, a, b)
+\()
+
+/(dec_mult, a, b)
+\()
+
+/(dec_pow, a, b)
+\()
+
+/(sqrt, a)
+\()
+----------------------------
+
+$(outputnum, num)
+$(outputbool, bool)
+$(outputstr, str)
+
+|(replace, "I am a string", "am", "amb", outputstr)
+
+<(outputstr)
+

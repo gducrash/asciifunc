@@ -2,7 +2,7 @@
 from typing import Union
 from pathlib import Path
 import hashlib
-import json
+import pickle
 import gzip
 
 from tokenise import tokenise
@@ -12,6 +12,9 @@ from extended import Bool, SignedNum
 from errors import AlreadyDefinedError, ArgumentNumberError, InvalidArgumentTypeError, InvalidVariableTypeError, SkipCommandError, UknownTypeError, UndefinedError, ImportError
 
 __all__ = ["interpret"]
+
+CACHE_FOLDER = Path("./.afcache")
+CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 def add_vals(val1, val2):
@@ -302,7 +305,7 @@ class Interpreter():
     def exec(self) -> None:
         pointer = Pointer(0)
 
-        # to allow for better recursion, we DONT check if a variable is already defines
+        # to allow for better recursion, we DONT check if a variable is already defined
         # if the function is recursive
         # this allows you to define variables in a function, without needed to pass them as arguments,
         # while also calling the function recursively
@@ -653,60 +656,47 @@ def interpret(tokens: list) -> None:
     return Interpreter(tokens).exec()
 
 
-CACHE_FOLDER = Path("./.afcache")
-CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
-
-
 def cache_imported_arguments(arguments, file):
     file = Path(file)
-    c_name = f"{file.name}-af.afc"
+    name = file.name.replace(file.suffix, "")
+    c_name = f"{name}-af.afc"
 
     raw_code = open(file, "r")
-
-    raw_file_md5sum = hashlib.md5(raw_code.read().encode("utf-8")).hexdigest()
-    xor = ord(raw_file_md5sum[0])
-
+    raw_file_md5sum = hashlib.md5(raw_code.read().encode()).hexdigest()
     raw_code.close()
 
-    with open(CACHE_FOLDER / c_name, "wb") as f:
-        text = f"{raw_file_md5sum}".encode()
-
-        for char in json.dumps(arguments, separators=(",", ":")):
-            text += chr(ord(char) ^ xor).encode()
-
-        f.write(gzip.compress(text))
+    # open gzip file and write hash and pickled data
+    with gzip.open(CACHE_FOLDER / c_name, "wb") as f:
+        f.write(raw_file_md5sum.encode() + pickle.dumps(arguments))
 
 
 def is_cache_up_to_date(file):
     file = Path(file)
-    c_name = f"{file.name}-af.afc"
+    name = file.name.replace(file.suffix, "")
+    c_name = f"{name}-af.afc"
 
     if(not (CACHE_FOLDER / c_name).exists()):
         return False
 
-    with open(CACHE_FOLDER / c_name, "rb") as f:
-        text = gzip.decompress(f.read())
-        md5sum = text[0:32]
+    with gzip.open(CACHE_FOLDER / c_name, "rb") as f:
+        # md5 hash always 32 characters long
+        md5sum = f.read()[0:32]
 
         raw_code = open(file, "r")
-        raw_file_md5sum = hashlib.md5(
-            raw_code.read().encode("utf-8")).hexdigest()
-
+        raw_file_md5sum = hashlib.md5(raw_code.read().encode()).hexdigest()
         raw_code.close()
+
+        # gets the stored md5 hash and the (new) hash of the file
+        # if they are equal the file hasnt changed
 
         return md5sum == raw_file_md5sum
 
 
 def get_cached_import_arguments(file):
     file = Path(file)
-    c_name = f"{file.name}-af.afc"
+    name = file.name.replace(file.suffix, "")
+    c_name = f"{name}-af.afc"
 
-    with open(CACHE_FOLDER / c_name, "rb") as f:
-        text = gzip.decompress(f.read())
-        xor = text[0:32][0]
-
-        decoded = ""
-        for char in text[32:]:
-            decoded += chr(char ^ xor)
-
-        return json.loads(decoded)
+    with gzip.open(CACHE_FOLDER / c_name, "rb") as f:
+        # skip the md5 hash (32 characters)
+        return pickle.loads(f.read()[32:])
