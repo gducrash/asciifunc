@@ -55,7 +55,6 @@ $(reachedEnd, num)
         :(register, registerBefore)
         &(register, registerValStr)
         &(register, registerAfter)
-        <(register)
     \()
     /(funcMvr)
         move to the next cell [1 cell in the register is 3 chars long]
