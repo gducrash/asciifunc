@@ -234,6 +234,23 @@ indexes start at 0, `1` is the 2nd character
 	&(new, string2)
 \(new)
 
+/(char_at, string, index)
+	$(lengthh, num)
+	get the length of the string
+	|(len, string, lengthh)
+	
+	before is the starting index
+	$(before, num)
+	=(before, index)
+
+	add once so it gets the character like we are indexing from 0 [so index 1 -> 2nd character]
+	+(index, 1)
+
+	substring
+	@(string, before, index)
+
+\(string)
+
 /(replace, string, trchr, rchr)
 	couldnt get working
 \(new)

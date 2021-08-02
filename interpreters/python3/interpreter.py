@@ -1,9 +1,11 @@
 
-from typing import Union
+from dataclasses import dataclass, field
+from typing import Union, Any
 from pathlib import Path
 import hashlib
 import pickle
 import gzip
+import os
 
 from tokenise import tokenise
 from constants import ARG_NUM, ARG_TYPES, DEFAULT_VALUES, Types
@@ -13,8 +15,17 @@ from errors import AlreadyDefinedError, ArgumentNumberError, InvalidArgumentType
 
 __all__ = ["interpret"]
 
+
+# cd to the current working directory
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
 CACHE_FOLDER = Path("./.afcache")
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
+
+
+def insr_expl(arr, i, add):
+    # inserts and explodes array into another array
+    return [*arr[0:i], *add, *arr[i:len(arr)]]
 
 
 def add_vals(val1, val2):
@@ -25,11 +36,11 @@ def add_vals(val1, val2):
         raise SkipCommandError
 
 
+@dataclass
 class Variable():
-    def __init__(self, name: str, type: str, value) -> None:
-        self.name = name
-        self.type = type
-        self.value = value
+    name: str
+    type: str
+    value: Any
 
     def set_value(self, value) -> None:
         types = {
@@ -48,17 +59,16 @@ class Variable():
         self.type = type
 
 
+@dataclass
 class Command():
+    name: str
+    arguments: list = field(default_factory=list)
+    scope: str = field(default="")
 
+    @dataclass
     class Argument():
-        def __init__(self, type: str, value) -> None:
-            self.value: Union[str, SignedNum] = value
-            self.type = type
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self.arguments = []
-        self.scope = ""
+        type: Any
+        value: Union[str, SignedNum]
 
     def set_scope(self, scope: str) -> None:
         self.scope = scope
@@ -131,20 +141,24 @@ class Command():
             return None
 
 
+@dataclass(frozen=True)
 class Function():
-    def __init__(self, name, pointer, arguments) -> None:
-        self.type = Types.VARIABLE
-        self.arguments = arguments
-        self.pos = pointer
-        self.name = name
+    name: str
+    pos: int
+    arguments: list
+    type: Any = Types.VARIABLE
 
 
+@dataclass
 class Pointer():
-    def __init__(self, pos: int) -> None:
-        self.pos = pos
+    pos: int
+    offset: int = field(default=0)
 
     def set_pos(self, pos: int) -> None:
         self.pos = pos
+
+    def add_offset(self, offset) -> None:
+        self.offset += offset
 
     def move_forward(self, amount: int) -> None:
         self.set_pos(self.pos + amount)
@@ -237,6 +251,12 @@ class Stack():
 
         return False
 
+    # if a user goto's over an import, defines a function then goto's back to that import,
+    # the function's `pos` value is going to be wrong so this function will go through every function
+    # and if it comes afer the pointer position of the import, it will add the offset to its position
+    def offset_funcs_after_import(self, import_pos) -> None:
+        pass
+
 
 # `STACK.new_stack_scope` will create a new local stack
 # use quotes in the name since variables can't have quotes in their names so the scope could not possibly be
@@ -316,23 +336,23 @@ class Interpreter():
 
             pointer.move_forward(1)
 
+            name = command.name
+
             # skip the command if its scope is not the current scope
             if(STACK.get_current_scope_name() != command.scope):
                 continue
 
-            name = command.name
-
             # if strict mode is off, argument types and the number of arguments are not checked therefore there is no guarantee that
             # any of these command will have all the arguments required. to fix this we could check whether all the commands / command values
-            # are `None` however this is messy and creates a lot of dupolicated code.
+            # are `None` however this is messy and creates a lot of duplicated code.
             # instead, if the value requested does not exist, the `get_argument_value` will raise a `SkipCommand` error. this will be
             # caught by this try catch, and will just skip that command which is the desired behaviour.
             # it only catches `SkipCommand` so that any other exceptions will pass through
             try:
                 if(name == "~"):
-                    file = Path(command.get_argument_checked(0))
+                    file = Path(command.get_argument_checked(0).value)
 
-                    interp = Interpreter([])
+                    args = []
 
                     if(not file.exists()):
                         raise ImportError(file.name)
@@ -340,20 +360,19 @@ class Interpreter():
                     if(is_cache_up_to_date(file)):
                         args = get_cached_import_arguments(file)
 
-                        # interpret the import function which puts all variables and functions into the scope
-                        interp.commands = args
-                        interp.exec()
-
                     else:
                         tokens = tokenise(file)
-                        # re init the class with the new tokens
-                        interp.__init__(tokens)
 
-                        # now the tokens are commands we can cache it to the file
-                        cache_imported_arguments(interp.commands, file)
+                        args = Interpreter(tokens).commands
 
-                        # and finally we can execute the arguments to add the stuff to the scope
-                        interp.exec()
+                        # convert tokens to commands and cache them to the file
+                        cache_imported_arguments(args, file)
+
+                    self.commands = insr_expl(
+                        self.commands, pointer.pos + 1, args)
+
+                    # add an offset for goto commands later on in the file
+                    pointer.add_offset(len(args))
 
                 elif(name == "$"):
                     if(is_recursive):
@@ -474,7 +493,7 @@ class Interpreter():
                         pointer.move_backward(var1.value - 1)
 
                     else:
-                        pointer.set_pos(var1.value - 1)
+                        pointer.set_pos((var1.value - 1) + pointer.offset)
 
                 elif(name == "?"):
                     var1 = command.get_argument_checked(0)
@@ -487,7 +506,7 @@ class Interpreter():
                             pointer.move_backward(var2.value - 1)
 
                         else:
-                            pointer.set_pos(var2.value - 1)
+                            pointer.set_pos((var2.value - 1) + pointer.offset)
 
                     elif(len(command.arguments) == 3):
                         var3 = command.get_argument_checked(2)
@@ -498,7 +517,7 @@ class Interpreter():
                             pointer.move_backward(var3.value - 1)
 
                         else:
-                            pointer.set_pos(var3.value - 1)
+                            pointer.set_pos((var3.value - 1) + pointer.offset)
 
                 elif(name == "/"):
                     # the func name (argument 0) is a symbol (variable) but isnt actually a variable defined yet
@@ -513,7 +532,7 @@ class Interpreter():
                     if(len(command.arguments) > 1):
                         arguments = command.arguments[1:]
 
-                    # pass down all arguments except the name
+                    # pass down all arguments except the type
                     func = Function(var1.value, pointer.pos, arguments)
 
                     # create func and define in the current scope
@@ -524,8 +543,6 @@ class Interpreter():
 
                     ret_val = ""
 
-                    # the `not in_func` just means ignore this if the function is being defined
-                    # since ofc the variable will not exist
                     if(var1 is not None and not STACK.is_stack_variable(var1.value)):
                         raise UndefinedError(var1.value)
 
@@ -578,7 +595,7 @@ class Interpreter():
                                 argument_values.append(
                                     {"type": val.type, "value": val.value})
                             else:
-                                # constants are allowed as arguments to a function so their tyoe need to be converted
+                                # constants are allowed as arguments to a function so their type need to be converted
                                 # from a literal to the respective keyword type
                                 argument_values.append(
                                     {"type": Types.LITERAL_TO_VAR[arg.type], "value": arg.value})
@@ -603,6 +620,7 @@ class Interpreter():
                     # avoid creating a new scope (and variables) on every call (if the function is recursive)
                     if(STACK.get_current_scope_name() != func.name):
                         is_recursive = False
+
                         # to execute the function, first create a new scope
                         STACK.new_stack_scope(func.name)
 
@@ -680,7 +698,7 @@ def is_cache_up_to_date(file):
 
     with gzip.open(CACHE_FOLDER / c_name, "rb") as f:
         # md5 hash always 32 characters long
-        md5sum = f.read()[0:32]
+        md5sum = f.read()[0:32].decode()
 
         raw_code = open(file, "r")
         raw_file_md5sum = hashlib.md5(raw_code.read().encode()).hexdigest()
