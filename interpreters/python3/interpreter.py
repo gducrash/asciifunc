@@ -141,7 +141,7 @@ class Command():
             return None
 
 
-@dataclass(frozen=True)
+@dataclass
 class Function():
     name: str
     pos: int
@@ -254,8 +254,13 @@ class Stack():
     # if a user goto's over an import, defines a function then goto's back to that import,
     # the function's `pos` value is going to be wrong so this function will go through every function
     # and if it comes afer the pointer position of the import, it will add the offset to its position
-    def offset_funcs_after_import(self, import_pos) -> None:
-        pass
+    def offset_funcs_after_import(self, import_pos, offset) -> None:
+        scope = self.stack[self.curr_scope]
+
+        for var in scope["variables"]:
+            if(isinstance(var, Function)):
+                if(var.pos > import_pos):
+                    var.pos = var.pos + offset
 
 
 # `STACK.new_stack_scope` will create a new local stack
@@ -373,6 +378,11 @@ class Interpreter():
 
                     # add an offset for goto commands later on in the file
                     pointer.add_offset(len(args))
+
+                    # imports should all be at the top of the file so *nothing* is defined before an import but if
+                    # a function is defined before an import, its pointer position will need to be updated accordingly
+                    STACK.offset_funcs_after_import(
+                        pointer.pos, pointer.offset)
 
                 elif(name == "$"):
                     if(is_recursive):
