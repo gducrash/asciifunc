@@ -1,0 +1,181 @@
+~("../../std-asciifunc.ascf")
+$(ascii, str)
+:(ascii, "                                 !'#$%&'[]*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+$(greet, str)
+:(greet, "Welcome to Brainf***k interpreter, written in AsciiFunc! To start, enter your program below:")
+<(greet)
+Get user input
+$(input, str)
+>(str, input)
+
+Define interpreter vars
+$(register, str)
+:(register, "000")
+$(registeri, num)
+=(registeri, 0)
+
+
+
+Go through each command
+$(ln, num)
+|(len, input, ln)
+
+$(i, num)
+$(reachedEnd, num)
+
+/(scanLoop)
+    commands
+    $(inc, str) $(dec, str) $(mvr, str) $(mvl, str)
+    $(inp, str) $(out, str) $(lps, str) $(lpe, str)
+    :(inc, "+") :(dec, "-") :(mvr, ">") :(mvl, "<")
+    :(inp, ",") :(out, ".") :(lps, "[") :(lpe, "]")
+    /(funcInc, val)
+        get register value at the index
+        $(registeriEnd, num) =(registeriEnd, registeri) +(registeriEnd, 3)
+        $(registerValStr, str) :(registerValStr, register) @(registerValStr, registeri, registeriEnd)
+        convert it to number and increment
+        $(registerVal, num) 1(registerValStr, registerVal) +(registerVal, val)
+        check if its below 0 or above 255
+        $(cellBelowZero, num) $(cellAboveMax, num) $(max, num) =(max, 255)
+        |(lt, registerVal, 0, cellBelowZero) |(gt, registerVal, max, cellAboveMax)
+        ?(cellBelowZero, +1, +2) +(registerVal, 256)
+        ?(cellAboveMax, +1, +2) +(registerVal, -256)
+        convert back to string
+        "(registerVal, registerValStr) $(registerValStrLen, num) |(len, registerValStr, registerValStrLen)
+        $(zerostr, str) :(zerostr, "0") $(invertLen, num) =(invertLen, -3) +(invertLen, registerValStrLen) !(invertLen)
+        ?(invertLen, +1, +4)
+            |(insert, registerValStr, zerostr, 0, registerValStr)
+            +(invertLen, -1)
+        #(-3)
+        
+        join it all together into the register
+        $(registerBefore, str) $(registerAfter, str) $(registerLen, num) |(len, register, registerLen)
+        :(registerBefore, register) @(registerBefore, 0, registeri)
+        :(registerAfter, register) @(registerAfter, registeriEnd, registerLen)
+        :(register, registerBefore)
+        &(register, registerValStr)
+        &(register, registerAfter)
+        <(register)
+    \()
+    /(funcMvr)
+        move to the next cell [1 cell in the register is 3 chars long]
+        +(registeri, 3)
+        if the register isnt long enough, extend it
+        $(registerLen, num) |(len, register, registerLen) +(registerLen, -1)
+        $(registeriGreater, num) |(gt, registeri, registerLen, registeriGreater)
+        ?(registeriGreater, +1, +2) &(register, "000")
+    \()
+    /(funcMvl)
+        move to the preious cell [1 cell in the register is 3 chars long]
+        +(registeri, -3)
+        if the register isnt long enough, extend it
+        $(registeriLess) |(lt, registeri, 0, registeriLess) $(zero3, str) :(zero3, "000")
+        ?(registeriLess, +1, +3) |(insert, register, zero3, 0, register) =(registeri, 0)
+    \()
+    /(funcInp)
+        get user input as char
+        $(userchar, str)
+        >(str, userchar)
+        @(userchar, 0, 1)
+        get its ascii index
+        $(asciiindex, num)
+        |(indexof, ascii, userchar, 0, asciiindex)
+
+        get register value at the index
+        $(registeriEnd, num) =(registeriEnd, registeri) +(registeriEnd, 3)
+        $(registerValStr, str) :(registerValStr, register) @(registerValStr, registeri, registeriEnd)
+        convert it to number and set
+        $(registerVal, num) 1(registerValStr, registerVal) =(registerVal, asciiindex)
+        convert back to string
+        "(registerVal, registerValStr) $(registerValStrLen, num) |(len, registerValStr, registerValStrLen)
+        $(zerostr, str) :(zerostr, "0") $(invertLen, num) =(invertLen, -3) +(invertLen, registerValStrLen) !(invertLen)
+        ?(invertLen, +1, +4)
+            |(insert, registerValStr, zerostr, 0, registerValStr)
+            +(invertLen, -1)
+        #(-3)
+        
+        join it all together into the register
+        $(registerBefore, str) $(registerAfter, str) $(registerLen, num) |(len, register, registerLen)
+        :(registerBefore, register) @(registerBefore, 0, registeri)
+        :(registerAfter, register) @(registerAfter, registeriEnd, registerLen)
+        :(register, registerBefore)
+        &(register, registerValStr)
+        &(register, registerAfter)
+    \()
+    /(funcOut)
+        get register value at the index
+        $(registeriEnd, num) =(registeriEnd, registeri) +(registeriEnd, 3)
+        $(registerValStr, str) :(registerValStr, register) @(registerValStr, registeri, registeriEnd)
+        convert it to number
+        $(registerVal, num) 1(registerValStr, registerVal)
+        get cell value + 1
+        $(registerValPlusOne, num) =(registerValPlusOne, registerVal) +(registerValPlusOne, 1)
+        get ascii character and print it
+        $(asciiChar, str) :(asciiChar, ascii) @(asciiChar, registerVal, registerValPlusOne)
+        <(asciiChar)
+    \()
+    /(funcLps)
+        get register value at the index
+        $(registeriEnd, num) =(registeriEnd, registeri) +(registeriEnd, 3)
+        $(registerValStr, str) :(registerValStr, register) @(registerValStr, registeri, registeriEnd)
+        convert it to number and increment
+        $(registerVal, num) 1(registerValStr, registerVal)
+        init required vars
+        $(iPlusOne, num) =(iPlusOne, i) +(iPlusOne, 1)
+        $(charAtI, str) :(charAtI, input) @(charAtI, i, iPlusOne)
+        $(loopLevel, num) $(commandEq, num) $(loopEnded, num) $(loopLevelEq, num)
+
+        if current cell is 0, proceed to the next commands, otherwise skip to the end of the function
+        ?(registerVal, +14, +1)
+        increment i until the command at i is the matching ]
+        +(i, 1) +(iPlusOne, 1) :(charAtI, input) @(charAtI, i, iPlusOne)
+        |(eq, charAtI, lps, commandEq) ?(commandEq, +1, +2) +(loopLevel, 1)
+        |(eq, loopLevel, 0, loopLevelEq)
+        |(eq, charAtI, lpe, commandEq) ?(commandEq, +1, +2) +(loopLevel, -1)
+        |(and, commandEq, loopLevelEq, loopEnded)
+        ?(loopEnded, +1, -12)
+    \()
+    /(funcLpe)
+        get register value at the index
+        $(registeriEnd, num) =(registeriEnd, registeri) +(registeriEnd, 3)
+        $(registerValStr, str) :(registerValStr, register) @(registerValStr, registeri, registeriEnd)
+        convert it to number and increment
+        $(registerVal, num) 1(registerValStr, registerVal)
+        init required vars
+        $(iPlusOne, num) =(iPlusOne, i) +(iPlusOne, 1)
+        $(charAtI, str) :(charAtI, input) @(charAtI, i, iPlusOne)
+        $(loopLevel, num) $(commandEq, num) $(loopEnded, num) $(loopLevelEq, num)
+
+        if current cell is not 0, proceed to the next commands, otherwise skip to the end of the function
+        ?(registerVal, +1, +14)
+        decrement i until the command at i is the matching [
+        +(i, -1) +(iPlusOne, -1) :(charAtI, input) @(charAtI, i, iPlusOne)
+        |(eq, charAtI, lpe, commandEq) ?(commandEq, +1, +2) +(loopLevel, 1)
+        |(eq, loopLevel, 0, loopLevelEq)
+        |(eq, charAtI, lps, commandEq) ?(commandEq, +1, +2) +(loopLevel, -1)
+        |(and, commandEq, loopLevelEq, loopEnded)
+        ?(loopEnded, +1, -12)
+    \()
+
+    get current character
+    $(iPlusOne, num) =(iPlusOne, i) +(iPlusOne, 1)
+    $(char, str) :(char, input) @(char, i, iPlusOne)
+
+    compare commands
+    $(commandEq, num)
+
+    |(eq, char, inc, commandEq) ?(commandEq, +1, +2) |(funcInc, 1)
+    |(eq, char, dec, commandEq) ?(commandEq, +1, +2) |(funcInc, -1)
+    |(eq, char, mvr, commandEq) ?(commandEq, +1, +2) |(funcMvr)
+    |(eq, char, mvl, commandEq) ?(commandEq, +1, +2) |(funcMvl)
+    |(eq, char, inp, commandEq) ?(commandEq, +1, +2) |(funcInp)
+    |(eq, char, out, commandEq) ?(commandEq, +1, +2) |(funcOut)
+    |(eq, char, lps, commandEq) ?(commandEq, +1, +2) |(funcLps)
+    |(eq, char, lpe, commandEq) ?(commandEq, +1, +2) |(funcLpe)
+    
+    next iteration
+    +(i, 1) %(i, ln, reachedEnd) +(reachedEnd, 1)
+\()
+
+|(scanLoop)
+?(reachedEnd, +1, -1)
