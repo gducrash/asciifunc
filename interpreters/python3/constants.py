@@ -39,7 +39,6 @@ class Types:
     # a literal bool is `true` / `false`
     LT_NUMBER = "LT_NUM"
     LT_STRING = "LT_STR"
-
     LT_BOOL = "LT_BOOL"
 
     # KW = keyword - keywords are `num`, `str`, `bool`
@@ -51,14 +50,9 @@ class Types:
     VARIABLE = "SYMBOL"
     KEYWORDS = [KW_NUMBER, KW_STRING, KW_BOOL]
 
-    # the reason both `KW_NUMBER` and `VARIABLE` are included is because, when the tokens are being converted to commands,
-    # the type of a varible is unknown, so it can only be check to make sure it is a `SYMBOL` (VARIABLE)
-    # when the program is actually executing is when we can check whether the variable is `KW_NUMBER`
     ANY_NUMBER = [LT_NUMBER, KW_NUMBER]
     ANY_STRING = [LT_STRING, KW_STRING]
 
-    # technically an `LT_BOOL` is also a `KW_BOOL` because `true` / `false` are not wrapped in quotes but
-    # they cant have the same name
     ANY_VAR = [KW_NUMBER, KW_STRING, KW_BOOL]
 
     ANY = [KW_NUMBER, KW_STRING, KW_BOOL, LT_NUMBER, LT_STRING, LT_BOOL]

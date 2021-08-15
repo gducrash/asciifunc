@@ -5,7 +5,8 @@ from pathlib import Path
 import hashlib
 import pickle
 import gzip
-import os
+
+import pprint
 
 from tokenise import tokenise
 from constants import ARG_NUM, ARG_TYPES, DEFAULT_VALUES, Types
@@ -15,17 +16,10 @@ from errors import AlreadyDefinedError, ArgumentNumberError, InvalidArgumentType
 
 __all__ = ["interpret"]
 
-
-# cd to the current working directory
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
-
 CACHE_FOLDER = Path("./.afcache")
 CACHE_FOLDER.mkdir(parents=True, exist_ok=True)
 
-
-def insr_expl(arr, i, add):
-    # inserts and explodes array into another array
-    return [*arr[0:i], *add, *arr[i:len(arr)]]
+GLOBAL_NAME = "\"global\""
 
 
 def add_vals(val1, val2):
@@ -45,8 +39,8 @@ class Variable():
     def set_value(self, value) -> None:
         types = {
             Types.KW_STRING: ["str"],
-            Types.KW_NUMBER: ["float", "int", "SignedInt", "SignedFloat"],
-            Types.KW_BOOL: ["bool", "Bool"]
+            Types.KW_NUMBER: ["SignedInt", "SignedFloat"],
+            Types.KW_BOOL: ["Bool"]
         }
 
         if(value.__class__.__name__ not in types[self.type]):
@@ -63,15 +57,11 @@ class Variable():
 class Command():
     name: str
     arguments: list = field(default_factory=list)
-    scope: str = field(default="")
 
     @dataclass
     class Argument():
         type: Any
         value: Union[str, SignedNum]
-
-    def set_scope(self, scope: str) -> None:
-        self.scope = scope
 
     def add_argument(self, type: str, value) -> None:
         self.arguments.append(Command.Argument(type, value))
@@ -143,22 +133,21 @@ class Command():
 
 @dataclass
 class Function():
-    name: str
-    pos: int
+    name: int
     arguments: list
     type: Any = Types.VARIABLE
 
 
 @dataclass
 class Pointer():
+    func_scope_name: str
     pos: int
-    offset: int = field(default=0)
+
+    def set_func_scope(self, func_scope_name: str) -> None:
+        self.func_scope_name = func_scope_name
 
     def set_pos(self, pos: int) -> None:
         self.pos = pos
-
-    def add_offset(self, offset) -> None:
-        self.offset += offset
 
     def move_forward(self, amount: int) -> None:
         self.set_pos(self.pos + amount)
@@ -178,6 +167,8 @@ class Stack():
             "variables": [],
             "calls": [],
         }]
+
+        self.stack_funcs = []
 
     def get_current_scope_name(self):
         return self.stack[self.curr_scope]["scope"]
@@ -218,6 +209,12 @@ class Stack():
         # push to the current scope
         self.stack[self.curr_scope]["variables"].append(var)
 
+    def push_stack_function(self, name: str) -> None:
+        self.stack_funcs.append(name)
+
+    def get_stack_function_index(self, name: str) -> None:
+        return self.stack_funcs.index(name)
+
     def get_variable(self, scope, name, _raise):
 
         # get all the scopes up until ours because we dont need to search a scope "lower down" since we couldnt possibly
@@ -235,100 +232,88 @@ class Stack():
         return None
 
     # gets a variable from the current scope
-    def get_stack_variable(self, name: str, _raise: bool = False) -> Variable:
+    def get_stack_variable(self, name: str, _raise: bool = False) -> Union[Variable, Function]:
         return self.get_variable(self.curr_scope, name, _raise)
 
-    # gets a variable from the parent scope
-    def get_parent_stack_variable(self, name: str, _raise: bool = False) -> Variable:
-        return self.get_variable(self.curr_scope - 1, name, _raise)
-
     def is_stack_variable(self, name: str) -> bool:
-        scope = self.stack[self.curr_scope]
-
-        for var in scope["variables"]:
-            if(var.name == name):
-                return True
+        for scope in self.stack[:self.curr_scope + 1][::-1]:
+            for var in scope["variables"]:
+                if(var.name == name):
+                    return True
 
         return False
-
-    # if a user goto's over an import, defines a function then goto's back to that import,
-    # the function's `pos` value is going to be wrong so this function will go through every function
-    # and if it comes afer the pointer position of the import, it will add the offset to its position
-    def offset_funcs_after_import(self, import_pos, offset) -> None:
-        scope = self.stack[self.curr_scope]
-
-        for var in scope["variables"]:
-            if(isinstance(var, Function)):
-                if(var.pos > import_pos):
-                    var.pos = var.pos + offset
 
 
 # `STACK.new_stack_scope` will create a new local stack
 # use quotes in the name since variables can't have quotes in their names so the scope could not possibly be
 # overridden
-STACK = Stack("\"global\"")
+STACK = Stack(GLOBAL_NAME)
 
 
 class Interpreter():
     def __init__(self, tokens: list) -> None:
-        self.commands: list[Command] = self.interp(tokens)
+        self.commands: object[Union[str, int], list[Command]] = {}
+
+        self.interp(tokens)
 
     def interp(self, tokens: list) -> list[Command]:
-        commands = []
-
         # default is "global" (with quotes)
-        scopes = [STACK.get_current_scope_name()]
+        scopes = [GLOBAL_NAME]
 
-        # converts the tokens to a list of commands
-        for index, token in enumerate(tokens):
+        current_command = None
+
+        for token in tokens:
             if(token.type == "EOF"):
                 break
 
             elif(token.type == "COMMAND"):
-                command = Command(token.value)
+                current_command = Command(token.value)
 
-                # as soon as we hit a command, loop over the rest of the tokens (until a right bracket) and add all arguments
-                for t in tokens[index:]:
-                    if(t.type == "R_BRACK"):
-                        command.set_scope(scopes[0])
+            elif(token.type == "R_BRACK"):
+                try:
+                    self.commands[scopes[0]]
+                except KeyError:
+                    self.commands[scopes[0]] = []
 
-                        # once a right bracket was hit, we need to check if the command is defining a function
-                        # if so, the following commands will need to have a different scope
-                        # each command having a scope allows for us to stop the user from goto-ing in and out of the function
-                        # without calling / returning
-                        if(command.name == "/"):
-                            if(command.arguments[0].type == Types.VARIABLE):
-                                scopes.insert(0, command.arguments[0].value)
-                            else:
-                                scopes.insert(0, None)
+                self.commands[scopes[0]].append(current_command)
 
-                        elif(command.name == "\\"):
-                            scopes.pop(0)
+                # once a right bracket was hit, we need to check if the command is defining a function
+                # if so, the following commands we define it as a function in the stack, and create a new "function scope"
+                # the commands that follow this one (until a return statement) will be added to the most local function scope
 
-                        break
+                if(current_command.name == "/"):
 
-                    if(t.type == "ARG"):
-                        command.add_argument(Types.VARIABLE, t.value)
+                    if(current_command.arguments[0].type == Types.VARIABLE):
+                        STACK.push_stack_function(
+                            current_command.arguments[0].value)
 
-                    elif(t.type in ["LT_NUM", "LT_NUM+", "LT_NUM-"]):
-                        # the `replace` will either leave `+` or `-` or just `` if there is no sign
-                        val = SignedNum(
-                            t.value, t.type.replace("LT_NUM", ""))
-                        command.add_argument(Types.LT_NUMBER, val)
+                        scopes.insert(0, len(STACK.stack_funcs) - 1)
 
-                    elif(t.type == Types.LT_BOOL):
-                        command.add_argument(Types.LT_BOOL, Bool(t.value))
+                elif(current_command.name == "\\"):
+                    scopes.pop(0)
 
-                    elif(t.type in Types.KEYWORDS):
-                        command.add_argument(t.type, t.value)
+                current_command = None
 
-                    elif(t.type == Types.LT_STRING):
-                        command.add_argument(Types.LT_STRING, t.value)
-                commands.append(command)
-        return commands
+            elif(token.type == "ARG"):
+                current_command.add_argument(Types.VARIABLE, token.value)
+
+            elif(token.type in ["LT_NUM", "LT_NUM+", "LT_NUM-"]):
+                # the `replace` will either leave `+` or `-` or just `` if there is no sign
+                val = SignedNum(
+                    token.value, token.type.replace("LT_NUM", ""))
+                current_command.add_argument(Types.LT_NUMBER, val)
+
+            elif(token.type == Types.LT_BOOL):
+                current_command.add_argument(Types.LT_BOOL, Bool(token.value))
+
+            elif(token.type in Types.KEYWORDS):
+                current_command.add_argument(token.type, token.value)
+
+            elif(token.type == Types.LT_STRING):
+                current_command.add_argument(Types.LT_STRING, token.value)
 
     def exec(self) -> None:
-        pointer = Pointer(0)
+        pointer = Pointer(GLOBAL_NAME, 0)
 
         # to allow for better recursion, we DONT check if a variable is already defined
         # if the function is recursive
@@ -336,16 +321,11 @@ class Interpreter():
         # while also calling the function recursively
         is_recursive = False
 
-        while(pointer.pos < len(self.commands)):
-            command: Command = self.commands[pointer.pos]
-
-            pointer.move_forward(1)
-
+        while(pointer.pos < len(self.commands[pointer.func_scope_name])):
+            command: Command = self.commands[pointer.func_scope_name][pointer.pos]
             name = command.name
 
-            # skip the command if its scope is not the current scope
-            if(STACK.get_current_scope_name() != command.scope):
-                continue
+            pointer.move_forward(1)
 
             # if strict mode is off, argument types and the number of arguments are not checked therefore there is no guarantee that
             # any of these command will have all the arguments required. to fix this we could check whether all the commands / command values
@@ -357,32 +337,29 @@ class Interpreter():
                 if(name == "~"):
                     file = Path(command.get_argument_checked(0).value)
 
-                    args = []
+                    interp = Interpreter([])
 
                     if(not file.exists()):
                         raise ImportError(file.name)
 
-                    if(is_cache_up_to_date(file)):
-                        args = get_cached_import_arguments(file)
+                    # if(is_cache_up_to_date(file)):
+                    #     interp.commands = get_cached_import_arguments(file)
+                    #     pprint.pprint(interp.commands)
+                    #     interp.exec()
 
-                    else:
-                        tokens = tokenise(file)
+                    # else:
+                    tokens = tokenise(file)
 
-                        args = Interpreter(tokens).commands
+                    interp.__init__(tokens)
 
-                        # convert tokens to commands and cache them to the file
-                        cache_imported_arguments(args, file)
+                    # convert tokens to commands and cache them to the file
+                    cache_imported_arguments(interp.commands, file)
 
-                    self.commands = insr_expl(
-                        self.commands, pointer.pos + 1, args)
+                    for k, v in interp.commands.items():
+                        self.commands.setdefault(k, v)
 
-                    # add an offset for goto commands later on in the file
-                    pointer.add_offset(len(args))
-
-                    # imports should all be at the top of the file so *nothing* is defined before an import but if
-                    # a function is defined before an import, its pointer position will need to be updated accordingly
-                    STACK.offset_funcs_after_import(
-                        pointer.pos, pointer.offset)
+                   
+                    interp.exec()
 
                 elif(name == "$"):
                     if(is_recursive):
@@ -503,7 +480,7 @@ class Interpreter():
                         pointer.move_backward(var1.value - 1)
 
                     else:
-                        pointer.set_pos((var1.value - 1) + pointer.offset)
+                        pointer.set_pos(var1.value - 1)
 
                 elif(name == "?"):
                     var1 = command.get_argument_checked(0)
@@ -516,7 +493,7 @@ class Interpreter():
                             pointer.move_backward(var2.value - 1)
 
                         else:
-                            pointer.set_pos((var2.value - 1) + pointer.offset)
+                            pointer.set_pos(var2.value - 1)
 
                     elif(len(command.arguments) == 3):
                         var3 = command.get_argument_checked(2)
@@ -527,11 +504,12 @@ class Interpreter():
                             pointer.move_backward(var3.value - 1)
 
                         else:
-                            pointer.set_pos((var3.value - 1) + pointer.offset)
+                            pointer.set_pos(var3.value - 1)
 
                 elif(name == "/"):
                     # the func name (argument 0) is a symbol (variable) but isnt actually a variable defined yet
                     # so we need to get it without checking if it exists
+
                     var1 = command.get_argument_raw(0)
 
                     if(STACK.is_stack_variable(var1.value)):
@@ -543,7 +521,8 @@ class Interpreter():
                         arguments = command.arguments[1:]
 
                     # pass down all arguments except the type
-                    func = Function(var1.value, pointer.pos, arguments)
+                    func = Function(STACK.get_stack_function_index(
+                        var1.value), arguments)
 
                     # create func and define in the current scope
                     STACK.push_stack_variable(func)
@@ -573,6 +552,9 @@ class Interpreter():
                     if(old_call["ret"] is not None):
                         old_call["ret"].set_value(ret_val)
 
+                    # we just removed the function's scope so `get_current_scope_name` will return the correct scope
+                    pointer.set_func_scope(STACK.get_current_scope_name())
+
                     # take the place where the function was called, move the pointer to there
                     # to avoid calling it infinitely
                     pointer.set_pos(old_call["pos"])
@@ -580,8 +562,9 @@ class Interpreter():
                 elif(name == "|"):
                     var1 = command.get_argument_raw(0)
 
-                    # try and get the function in the current scope
-                    func = STACK.get_stack_variable(var1.value)
+                    # try and get the function
+                    func = STACK.get_stack_variable(
+                        STACK.get_stack_function_index(var1.value))
 
                     if(func is None):
                         raise UndefinedError(var1.value)
@@ -644,8 +627,9 @@ class Interpreter():
                         # if we are calling ourself from ourself, it is now recursive
                         is_recursive = True
 
-                    # move the pointer to inside of the function
-                    pointer.set_pos(func.pos)
+                    # # move the pointer to inside of the function
+                    pointer.set_func_scope(func.name)
+                    pointer.set_pos(0)
 
                 elif(name == ">"):
                     var1 = command.get_argument_checked(0)

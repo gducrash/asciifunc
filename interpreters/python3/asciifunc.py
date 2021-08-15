@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import os
 
 from tokenise import tokenise
 from interpreter import interpret
@@ -26,6 +27,9 @@ if(args.file is None or not Path(args.file).exists()):
     raise ValueError("File does not exist!")
 
 Errors.set_strict(args.strict)
+
+# cd to the current working directory
+os.chdir(os.getcwd())
 
 tok = tokenise(args.file)
 interpret(tok)

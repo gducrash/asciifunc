@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import dataclass
 
 from constants import COMMANDS
 
@@ -11,17 +12,10 @@ class CONTEXTS:
     STR = "str"
 
 
+@dataclass(frozen=True, repr=False)
 class Token():
-    def __init__(self, type: str, value: str) -> None:
-
-        self.type = type
-        self.value = value
-
-    def __str__(self) -> str:
-        return f"Token({self.type}, {self.value})"
-
-    def __repr__(self) -> str:
-        return self.__str__()
+    type: str
+    value: str
 
 
 def tokenise(file: Path) -> list[Token]:
@@ -97,8 +91,7 @@ def tokenise(file: Path) -> list[Token]:
 
                     add_token(char, "R_BRACK")
 
-                # both " and ' work to denote string so the character is checked against both
-                elif(char == "\"" or char == "'"):
+                elif(char == "\""):
                     if(CONTEXT == CONTEXTS.STR):
                         CONTEXT = CONTEXTS.IN
 

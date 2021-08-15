@@ -1,4 +1,4 @@
----------------------------- boolean logic operators
+--------------------------- boolean logic operators
 /(not, a)
 	$(c, num)
 
@@ -9,6 +9,7 @@
 
 	+(c, 1)
 \(c)
+
 
 /(and, a, b)
 	$(c, num)
@@ -80,6 +81,7 @@
 	|(not, c, c)
 \(c)
 ----------------------------
+
 
 ---------------------------- misc
 `a` can be 0 or 1 or `true` or `false`
