@@ -1,3 +1,6 @@
+from constants import Types
+
+
 class Errors():
     STRICT = False
 
@@ -53,7 +56,7 @@ class InvalidVariableTypeError(Exception):
     # raised when trying to assign to a variable of a different type
 
     def __init__(self, curr_type: str, actual_type: str):
-        self.message = f"Cannot assign type `{curr_type}` to variable of type `{actual_type}`."
+        self.message = f"Cannot assign type `{Types.to_string(curr_type)}` to variable of type `{Types.to_string(actual_type)}`."
 
         if(Errors.STRICT):
             super().__init__(self.message)
@@ -65,7 +68,7 @@ class InvalidArgumentTypeError(Exception):
     # raised when trying to call a method with an argument of a different type
 
     def __init__(self, name: str, arg_num: int, actual_type, curr_type: str):
-        self.message = f"Argument {arg_num} of `{name}` must be of type `{actual_type}`, not `{curr_type}`."
+        self.message = f"Argument {arg_num} of `{name}` must be of type `{Types.to_string(actual_type)}`, not `{Types.to_string(curr_type)}`."
 
         if(Errors.STRICT):
             super().__init__(self.message)

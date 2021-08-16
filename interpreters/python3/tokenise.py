@@ -1,7 +1,7 @@
 from pathlib import Path
 from dataclasses import dataclass
 
-from constants import COMMANDS
+from constants import COMMANDS, Types
 
 __all__ = ["tokenize"]
 
@@ -40,23 +40,23 @@ def tokenise(file: Path) -> list[Token]:
             # now check if it had a sign
             if(val.find("+") > -1):
                 # the + or - at the end denotes the sign
-                add_token(num, "LT_NUM+")
+                add_token(num, Types.LT_NUMBER_P)
             elif(val.find("-") > -1):
-                add_token(num, "LT_NUM-")
+                add_token(num, Types.LT_NUMBER_N)
             else:
-                add_token(num, "LT_NUM")
+                add_token(num, Types.LT_NUMBER)
 
         except ValueError:
             if(val == "bool"):
-                add_token(val, "KW_BOOL")
+                add_token(val, Types.KW_BOOL)
             elif(val == "str"):
-                add_token(val, "KW_STR")
+                add_token(val, Types.KW_STRING)
             elif(val == "num"):
-                add_token(val, "KW_NUM")
+                add_token(val, Types.KW_NUMBER)
             elif(val in ["false", "true"]):
-                add_token(val, "LT_BOOL")
+                add_token(val, Types.LT_BOOL)
             else:
-                add_token(val, "ARG")
+                add_token(val, Types.VARIABLE)
 
     with open(file, "r") as f:
         for line in f:
@@ -95,7 +95,7 @@ def tokenise(file: Path) -> list[Token]:
                     if(CONTEXT == CONTEXTS.STR):
                         CONTEXT = CONTEXTS.IN
 
-                        add_token(string, "LT_STR")
+                        add_token(string, Types.LT_STRING)
                         add_token(char, "STR_END")
 
                         string = ""

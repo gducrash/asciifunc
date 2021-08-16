@@ -30,6 +30,12 @@ def add_vals(val1, val2):
         raise SkipCommandError
 
 
+def get_sign(type: int) -> str:
+    return "+" if Types.eq(type, Types.LT_NUMBER_P) \
+        else "-" if Types.eq(type, Types.LT_NUMBER_N) \
+        else ""
+
+
 @dataclass
 class Variable():
     name: str
@@ -83,12 +89,12 @@ class Command():
 
             # manually type check functions
             if(self.name in ["|", "/", "\\"]):
-                if(arg.type != Types.VARIABLE):
+                if(not Types.eq(arg.type, Types.VARIABLE)):
                     raise InvalidArgumentTypeError(
                         self.name, 1, Types.VARIABLE, arg.type)
 
             # if it's a variable we cant check the type here, so we'll need to do it later
-            if(arg.type not in types and arg.type != Types.VARIABLE):
+            if(not Types.eq(arg.type, types) and not Types.eq(arg.type, Types.VARIABLE)):
                 raise InvalidArgumentTypeError(
                     self.name, num + 1, types, arg.type)
 
@@ -103,7 +109,7 @@ class Command():
 
             types = ARG_TYPES[self.name][num]
 
-            if(arg.type == Types.VARIABLE):
+            if(Types.eq(arg.type, Types.VARIABLE)):
 
                 # check if variable exists in the stack
                 if(not STACK.is_stack_variable(arg.value)):
@@ -112,7 +118,7 @@ class Command():
                 var = STACK.get_stack_variable(arg.value, True)
 
                 # check the actual type of the variable
-                if(var.type not in types):
+                if(not Types.eq(var.type, types)):
                     raise InvalidArgumentTypeError(
                         self.name, num + 1, types, var.type)
 
@@ -283,7 +289,7 @@ class Interpreter():
 
                 if(current_command.name == "/"):
 
-                    if(current_command.arguments[0].type == Types.VARIABLE):
+                    if(Types.eq(current_command.arguments[0].type, Types.VARIABLE)):
                         STACK.push_stack_function(
                             current_command.arguments[0].value)
 
@@ -294,22 +300,22 @@ class Interpreter():
 
                 current_command = None
 
-            elif(token.type == "ARG"):
+            elif(Types.eq(token.type, Types.VARIABLE)):
                 current_command.add_argument(Types.VARIABLE, token.value)
 
-            elif(token.type in ["LT_NUM", "LT_NUM+", "LT_NUM-"]):
+            elif(Types.eq(token.type, Types.ANY_NUMBER)):
                 # the `replace` will either leave `+` or `-` or just `` if there is no sign
-                val = SignedNum(
-                    token.value, token.type.replace("LT_NUM", ""))
+                val = SignedNum(token.value, get_sign(token.type))
+
                 current_command.add_argument(Types.LT_NUMBER, val)
 
-            elif(token.type == Types.LT_BOOL):
+            elif(Types.eq(token.type, Types.LT_BOOL)):
                 current_command.add_argument(Types.LT_BOOL, Bool(token.value))
 
-            elif(token.type in Types.KEYWORDS):
+            elif(Types.eq(token.type, Types.ANY_VAR)):
                 current_command.add_argument(token.type, token.value)
 
-            elif(token.type == Types.LT_STRING):
+            elif(Types.eq(token.type, Types.LT_STRING)):
                 current_command.add_argument(Types.LT_STRING, token.value)
 
     def exec(self) -> None:
@@ -358,7 +364,6 @@ class Interpreter():
                     for k, v in interp.commands.items():
                         self.commands.setdefault(k, v)
 
-                   
                     interp.exec()
 
                 elif(name == "$"):
@@ -579,7 +584,7 @@ class Interpreter():
                         # and put them in the array
                         for arg in command.arguments[1:len(func.arguments) + 1]:
 
-                            if(arg.type == Types.VARIABLE):
+                            if(Types.eq(arg.type, Types.VARIABLE)):
                                 val = STACK.get_stack_variable(arg.value)
 
                                 if(val is None):
@@ -603,7 +608,7 @@ class Interpreter():
 
                             ret_var = STACK.get_stack_variable(ret_var.value)
 
-                            if(ret_var.type not in Types.ANY_VAR):
+                            if(not Types.eq(ret_var.type, Types.ANY_VAR)):
                                 raise InvalidArgumentTypeError(command.name, len(
                                     func.arguments), Types.ANY_VAR, ret_var.type)
 
@@ -637,12 +642,12 @@ class Interpreter():
 
                     inp = input(">: ")
 
-                    if(var1.type == Types.KW_NUMBER):
+                    if(Types.eq(var1.type, Types.KW_NUMBER)):
                         try:
                             inp = SignedNum(inp)
                         except ValueError:
                             raise SkipCommandError
-                    elif(var1.type == Types.KW_BOOL):
+                    elif(Types.eq(var1.type, Types.KW_BOOL)):
                         if(inp == "true"):
                             inp = Bool(True)
                         elif(inp == "false"):
